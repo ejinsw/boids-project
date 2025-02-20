@@ -22,6 +22,11 @@ const mouse = new THREE.Vector2()
 var boid_count = 20;
 var boids = [];
 
+// Weights
+const WEIGHT_SEPERATION = 0.1;
+const WEIGHT_COHESION = 0.1;
+const WEIGHT_ALIGNMENT = 0.1;
+
 const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
 const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
 
