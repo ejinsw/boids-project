@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { mx_bilerp_0 } from 'three/src/nodes/materialx/lib/mx_noise.js';
+
 function getClosestBoids(boid) {
     //Number of boids to return
     const NUM_CLOSEST = 7;
@@ -26,7 +26,7 @@ function applySeperation() {
         let vectorSeperation = new THREE.Vector3();
         for (let i = 0; i < closestBoids.length; i++){
             let vectorDistance = new THREE.Vector3().subVectors(boid.position,closestBoid[i].position);
-            vectorSeperation += vectorDistance;
+            vectorSeperation.add(vectorDistance);
         }
         const velocity = new THREE.Vector3(0,1,0);
         boid.localToWorld(velocity);
@@ -71,8 +71,26 @@ function applyCohesion() {
 
 // Working on allignment
 function getAvgAlignment() {
-    let avgAlignment = new THREE.Vector3();
+    const avgAlignment = new THREE.Vector3();
     for (let boid of boids) {
-        
+        const velocity = new THREE.Vector3(0,1,0);
+        boid.localToWorld(velocity);
+        velocity.sub(boid.position);  
+        avgAlignment.add(velocity);
+    }
+    return avgAlignment.addScalar(1/boid_count);
+}
+
+function applyAlignment() {
+    const avgAlignment = getAvgAlignment();
+    for (let boid of boids) {
+        const vectorAlignment = new THREE.Vector3().subVectors(avgAlignment,boid.position);
+        const velocity = new THREE.Vector3(0,1,0);
+        boid.localToWorld(velocity);
+        velocity.sub(boid.position);
+        vectorAlignment.addScalar(WEIGHT_ALIGNMENT);
+        vectorAlignment.add(velocity);
+        vectorAlignment.setLength(0.1); // This can change
+        boid.position.add(vectorAlignment);
     }
 }
