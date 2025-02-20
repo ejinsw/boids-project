@@ -19,13 +19,15 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-var boid_count = 20;
+var boid_count = 3;
 var boids = [];
 
 // Weights
 const WEIGHT_SEPERATION = 0.1;
 const WEIGHT_COHESION = 0.1;
 const WEIGHT_ALIGNMENT = 0.1;
+
+const BOID_RADIUS = 2;
 
 const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
 const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
@@ -267,7 +269,7 @@ const tick = () => {
 
     // Render
     renderer.render(scene, camera)
-
+/*
     for (let boid of boids) {
       const velocity = new THREE.Vector3(0,1,0);
       boid.localToWorld(velocity);
@@ -275,6 +277,23 @@ const tick = () => {
       velocity.setLength(0.1);
       boid.position.add(velocity);
     }
+      */
+
+    // Attemption to add you tubes version
+    for (let boid of boids) {
+        const velocity = new THREE.Vector3(0,1,0);
+        boid.localToWorld(velocity);
+        velocity.sub(boid.position);
+       
+        let boidsInRange = getBoidsInRange(boid,boids);
+        for (let b of boidsInRange) {
+          let ratio = 1 - Math.min(1,boid.position.distanceTo(b.position)/BIOD_RADIUS);
+          velocity.add(clone().sub(boid.position).addScalar(ratio));
+        }
+        velocity.setLength(0.2);
+        boid.position.add(velocity);
+      }
+  
 
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
@@ -283,3 +302,18 @@ const tick = () => {
 tick()
 initialize_boids()
 console.log(boids)
+
+function getBoidsInRange(boid,boids) {
+    return boids.filter(b =>
+        b !== this &&
+        b.poistion.distanceTo(boid.position) <= BOID_RADIUS &&
+        isInVisionCone(boid,b)
+    );
+}
+
+
+function isInVisionCone(boid,b) {
+    let vecToOther = b.clone().sub(boid.position).normalize();
+    let dot = boid.position.dot(vecToOther);
+    return dot > 0;
+}
