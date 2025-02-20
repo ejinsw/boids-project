@@ -250,6 +250,8 @@ window.addEventListener('click', (event) => {
         const object = intersects[0].object
 
         transformControls.attach(object)
+    } else {
+        transformControls.detach()
     }
 })
 
