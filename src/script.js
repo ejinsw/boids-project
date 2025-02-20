@@ -29,7 +29,8 @@ function initialize_boids() {
   for (let i = 0; i < boid_count; i++) {
     const boid = new THREE.Mesh(BoidGeometry, BoidMaterial);
     boid.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
-    boid.lookAt(Math.random() * 10 - 5,Math.random() * 10 - 5, Math.random() * 10 - 5)
+    boid.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
+    boids.push(boid);
     scene.add(boid);
   }
 }
@@ -263,7 +264,11 @@ const tick = () => {
     renderer.render(scene, camera)
 
     for (let boid of boids) {
-
+      const velocity = new THREE.Vector3(0,1,0);
+      boid.localToWorld(velocity);
+      velocity.sub(boid.position);
+      velocity.setLength(0.1);
+      boid.position.add(velocity);
     }
 
     // Call tick again on the next frame
