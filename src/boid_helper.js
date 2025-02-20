@@ -94,3 +94,34 @@ function applyAlignment() {
         boid.position.add(vectorAlignment);
     }
 }
+
+// ANOTHER IMPLEMENTATION
+
+function getBoidsInRange(boid,boids) {
+    return boids.filter(b =>
+        b !== this &&
+        b.poistion.distanceTo(boid.position) <= BOID_RADIUS &&
+        isInVisionCone(boid,b)
+    );
+}
+
+
+function isInVisionCone(boid,b) {
+    let vecToOther = b.clone().sub(boid.position).normalize();
+    let dot = boid.position.dot(vecToOther);
+    return dot > 0;
+}
+
+    for (let boid of boids) {
+        const velocity = new THREE.Vector3(0,1,0);
+        boid.localToWorld(velocity);
+        velocity.sub(boid.position);
+       
+        let boidsInRange = getBoidsInRange(boid,boids);
+        for (let b of boidsInRange) {
+          let ratio = 1 - Math.min(1,boid.position.distanceTo(b.position)/BIOD_RADIUS);
+          velocity.add(clone().sub(boid.position).addScalar(ratio));
+        }
+        velocity.setLength(0.2);
+        boid.position.add(velocity);
+      }
