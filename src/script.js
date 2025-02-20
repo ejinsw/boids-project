@@ -19,7 +19,20 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
+var boid_count = 20;
+var boids = [];
 
+const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
+const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
+
+function initialize_boids() {
+  for (let i = 0; i < boid_count; i++) {
+    const boid = new THREE.Mesh(BoidGeometry, BoidMaterial);
+    boid.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
+    boid.lookAt(Math.random() * 10 - 5,Math.random() * 10 - 5, Math.random() * 10 - 5)
+    scene.add(boid);
+  }
+}
 /**
  * Textures
  */
@@ -249,8 +262,14 @@ const tick = () => {
     // Render
     renderer.render(scene, camera)
 
+    for (let boid of boids) {
+
+    }
+
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
 }
 
 tick()
+initialize_boids()
+console.log(boids)
