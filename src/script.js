@@ -105,9 +105,10 @@ class Boid {
         this.mesh.position.add(this.velocity);
         //this.acceleration.set(0,0,0);
         // Face of boid to face of movement
-        /*
+        
         const face = new THREE.Vector3().copy(velocity).add(this.mesh.position);
         this.mesh.lookAt(face);
+        /*
         const seperationVector = this.seperation();
         //this.acceleration.add(seperationVector);
         velocity.add(seperationVector);
@@ -121,16 +122,13 @@ class Boid {
     }
 
     seperation() {
-        const seperationVector = new THREE.Vector3();
-        return seperationVector;
+
     }
     alignment() {
-        const alignmentVector = new THREE.Vector3();
-        return alignmentVector;
+
     }
     cohesion() {
-        const cohesionVector = new THREE.Vector3();
-        return cohesionVector;
+
     }
 }
 
