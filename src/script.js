@@ -8,6 +8,7 @@ import { TransformControls } from 'three/examples/jsm/Addons.js'
  */
 // Debug
 const gui = new GUI()
+const debugObject = {}
 
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
@@ -185,7 +186,7 @@ terrarium.add(ground)
 
 const container = new THREE.Mesh(
     new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth),
-    new THREE.MeshPhongMaterial({ color: '#c7f5fb', transparent: true, opacity: 0.2, shininess: 100 })
+    new THREE.MeshPhongMaterial({ color: '#c7f5fb', transparent: true, opacity: 0.2, shininess: 100, side: THREE.DoubleSide })
 )
 container.position.y = terrariumDimensions.height / 2
 terrarium.add(container)
@@ -213,14 +214,38 @@ function makeObject(geometry, material) {
     object.material.roughness = 0.5
     object.material.metalness = 0.5
 
-
     return object
 }
 
+debugObject.makeSphere = () => {
+    const object = makeObject(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshPhongMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()) }))
+    scene.add(object)
+    objects.push(object)
+    object.geometry.computeBoundingBox()
+}
+
+debugObject.makeBox = () => {
+    const object = makeObject(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshPhongMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()) }))
+    scene.add(object)
+    objects.push(object)
+    object.geometry.computeBoundingBox()
+}
+
+debugObject.makeDonut = () => {
+    const object = makeObject(new THREE.TorusGeometry() , new THREE.MeshPhongMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()) }))
+    scene.add(object)
+    objects.push(object)
+    object.geometry.computeBoundingBox()
+}
+
+gui.add(debugObject, 'makeSphere')
+gui.add(debugObject, 'makeBox')
+gui.add(debugObject, 'makeDonut')
+
 const objects = [
-    makeObject(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color: 'gray' })),
+    makeObject(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshPhongMaterial({ color: 'gray' })),
     makeObject(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshPhongMaterial({ color: 'blue' })),
-    makeObject(new THREE.ConeGeometry(1, 2, 16), new THREE.MeshPhongMaterial({ color: 'red' })),
+    makeObject(new THREE.TorusGeometry(), new THREE.MeshPhongMaterial({ color: 'red' })),
 ]
 
 objects.forEach((object) => {
@@ -280,13 +305,23 @@ controls.enableDamping = true
 
 // Transform Controls
 let prevPosition = new THREE.Vector3()
+let prevScale = new THREE.Vector3()
+
 const transformControls = new TransformControls(camera, canvas)
 transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value
     prevPosition.copy(transformControls.object.position)
+    prevScale.copy(transformControls.object.scale)
 })
 
 transformControls.addEventListener('change', () => {
+    if (!transformControls.object) return
+    // Clamp Scale
+    transformControls.object.scale.x = Math.min(Math.max(transformControls.object.scale.x, 0.5), 3)
+    transformControls.object.scale.y = Math.min(Math.max(transformControls.object.scale.y, 0.5), 3)
+    transformControls.object.scale.z = Math.min(Math.max(transformControls.object.scale.z, 0.5), 3)
+
+    // Clamp Position
     const boundingBox = new THREE.Box3().setFromObject(transformControls.object)
     const dimensions = new THREE.Vector3()
     boundingBox.getSize(dimensions)
@@ -307,6 +342,7 @@ objects.forEach((object, index) => {
     object.addEventListener('click', () => {
         transformControls.attach(object)
         prevPosition.copy(object.position)
+        prevScale.copy(object.scale)
     })
 })
 
@@ -326,6 +362,8 @@ window.addEventListener('click', (event) => {
         const object = intersects[0].object
 
         transformControls.attach(object)
+    } else {
+        transformControls.detach()
     }
 })
 
@@ -334,6 +372,14 @@ window.addEventListener('keydown', (event) => {
         transformControls.mode = transformControls.mode === 'translate' ? 'rotate'
             : transformControls.mode === 'rotate' ? 'scale'
                 : 'translate'
+    } else if (event.key === 'Backspace') {
+        if (transformControls.object) {
+            scene.remove(transformControls.object)
+            objects.splice(objects.indexOf(transformControls.object), 1)
+            transformControls.object.geometry.dispose()
+            transformControls.object.material.dispose()
+            transformControls.detach()
+        }
     }
 })
 
