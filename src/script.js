@@ -398,12 +398,24 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
  */
 const clock = new THREE.Clock()
 
+let lastResetTime = 0;
+const resetInterval = 3;
+
 const tick = () => {
     const elapsedTime = clock.getElapsedTime()
 
     // Update controls
     controls.update()
 
+    if (elapsedTime - lastResetTime >= resetInterval) {
+        // Remove all current boids from the scene
+        boids.forEach(boid => {
+            scene.remove(boid.mesh); // Adjust based on your boid structure
+        });
+        boids = []; // Clear the array
+        initialize_boids(); // Reinitialize new boids
+        lastResetTime = elapsedTime; // Update the reset timer
+    }
     // Render
     renderer.render(scene, camera)
 
