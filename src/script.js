@@ -19,7 +19,7 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-var boid_count = 3;
+var boid_count = 5;
 var boids = [];
 
 // Weights
@@ -28,23 +28,9 @@ const WEIGHT_COHESION = 0.1;
 const WEIGHT_ALIGNMENT = 0.1;
 
 const BOID_RADIUS = 2;
-
-const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
-const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
-
-function initialize_boids() {
-  for (let i = 0; i < boid_count; i++) {
-    const boid = new THREE.Mesh(BoidGeometry, BoidMaterial);
-    boid.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
-    boid.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
-    boids.push(boid);
-    scene.add(boid);
-  }
-}
-/**
- * Textures
- */
-const textureLoader = new THREE.TextureLoader()
+const MAX_SPEED = 0.07;
+const MAX_STEERING = 0.3;
+const MARGIN = 3;
 
 /**
  * Terrarium
@@ -54,6 +40,111 @@ const terrariumDimensions = {
     height: 10,
     depth: 15
 }
+
+const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
+const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
+
+class Boid {
+    constructor()  {
+        this.mesh = new THREE.Mesh(BoidGeometry, BoidMaterial);
+        this.mesh.visible = true;
+        this.mesh.position.set((Math.random() - 0.5) * terrariumDimensions.width,
+                               (Math.random() - 0.5) * terrariumDimensions.height,
+                               (Math.random() - 0.5) * terrariumDimensions.depth);
+        this.mesh.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
+        this.velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() -0.5, Math.random() -0.5).normalize();
+        //this.acceleration = new THREE.Vector3();
+        // TODO: Add Bounds
+        this.xMin = terrariumDimensions.width / -4;
+        this.xMax = terrariumDimensions.width / 4;
+        this.yMin = terrariumDimensions.height / -4 - 3;
+        this.yMax = terrariumDimensions.height / 4 - 3;
+        this.zMin = terrariumDimensions.depth / -4;
+        this.zMax = terrariumDimensions.depth / 4;
+        scene.add(this.mesh);
+    }
+
+    move() {
+        console.log("Boid moving:", this.mesh.position);
+        // TODO: Calc distance from bounds
+        let distXMin = this.mesh.position.x - this.xMin;
+        let distXMax = this.xMax - this.mesh.position.x;
+        let distYMin = this.mesh.position.y - this.yMin;
+        let distYMax = this.yMax - this.mesh.position.y; 
+        let distZMin = this.mesh.position.z - this.zMin;
+        let distZMax = this.zMax - this.mesh.position.z;
+        // Movement Vector
+        const movementVector = new THREE.Vector3(0,1,0);
+        this.mesh.localToWorld(movementVector);
+        movementVector.sub(this.mesh.position);
+        // TODO: Apply steering force when close to boundaries
+        if (distXMin < MARGIN) {
+            movementVector.x += MAX_STEERING * (1 - distXMin/MARGIN); 
+        }
+        else if (distXMax < MARGIN) {
+            movementVector.x -= MAX_STEERING * (1 - distXMax/MARGIN); 
+        }
+        if (distYMin < MARGIN) {
+            movementVector.y += MAX_STEERING * (1 - distYMin/MARGIN); 
+        }
+        else if (distYMax < MARGIN) {
+            movementVector.y -= MAX_STEERING * (1 - distYMax/MARGIN);
+        }
+        if (distZMin < MARGIN) {
+            movementVector.z += MAX_STEERING * (1 - distZMin/MARGIN); 
+        }
+        else if (distZMax < MARGIN) {
+            movementVector.z -= MAX_STEERING * (1 - distZMax/MARGIN);
+        }
+        // TODO: Velocity -> Acceleration and limit max speed
+        //this.acceleration.add(movementVector);
+        //this.velocity.add(this.acceleration);
+        this.velocity.add(movementVector);
+        this.velocity.clampLength(0, MAX_SPEED);
+        this.mesh.position.add(this.velocity);
+        //this.acceleration.set(0,0,0);
+        // Face of boid to face of movement
+        /*
+        const face = new THREE.Vector3().copy(velocity).add(this.mesh.position);
+        this.mesh.lookAt(face);
+        const seperationVector = this.seperation();
+        //this.acceleration.add(seperationVector);
+        velocity.add(seperationVector);
+        const alignmentVector = this.alignment();
+        //this.acceleration.add(alignmentVector);
+        velocity.add(alignmentVector);
+        const cohesionVector = this.cohesion();
+        //this.acceleration.add(cohesionVector);
+        velocity.add(cohesionVector);
+        */
+    }
+
+    seperation() {
+        const seperationVector = new THREE.Vector3();
+        return seperationVector;
+    }
+    alignment() {
+        const alignmentVector = new THREE.Vector3();
+        return alignmentVector;
+    }
+    cohesion() {
+        const cohesionVector = new THREE.Vector3();
+        return cohesionVector;
+    }
+}
+
+function initialize_boids() {
+  for (let i = 0; i < boid_count; i++) {
+    let boid = new Boid();
+    boids.push(boid);
+  }
+}
+/**
+ * Textures
+ */
+const textureLoader = new THREE.TextureLoader()
+
+
 
 gui.add(terrariumDimensions, 'width').min(1).max(20).step(0.1).onChange(() => {
     ground.geometry.dispose()
@@ -269,40 +360,18 @@ const tick = () => {
 
     // Render
     renderer.render(scene, camera)
-/*
-    for (let boid of boids) {
-      const velocity = new THREE.Vector3(0,1,0);
-      boid.localToWorld(velocity);
-      velocity.sub(boid.position);
-      velocity.setLength(0.1);
-      boid.position.add(velocity);
-    }
-      */
 
-    // Attemption to add you tubes version
     for (let boid of boids) {
-        const velocity = new THREE.Vector3(0,1,0);
-        boid.localToWorld(velocity);
-        velocity.sub(boid.position);
-       
-        let boidsInRange = getBoidsInRange(boid,boids);
-        for (let b of boidsInRange) {
-          let ratio = 1 - Math.min(1,boid.position.distanceTo(b.position)/BIOD_RADIUS);
-          velocity.add(clone().sub(boid.position).addScalar(ratio));
-        }
-        velocity.setLength(0.2);
-        boid.position.add(velocity);
-      }
-  
+      boid.move()
+    }
 
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
 }
-
+initialize_boids();
 tick()
-initialize_boids()
-console.log(boids)
-
+console.log(boids);
+/*
 function getBoidsInRange(boid,boids) {
     return boids.filter(b =>
         b !== this &&
@@ -317,3 +386,21 @@ function isInVisionCone(boid,b) {
     let dot = boid.position.dot(vecToOther);
     return dot > 0;
 }
+    */
+
+    // Attemption to add you tubes version
+    /*
+    for (let boid of boids) {
+        const velocity = new THREE.Vector3(0,1,0);
+        boid.localToWorld(velocity);
+        velocity.sub(boid.position);
+       
+        let boidsInRange = getBoidsInRange(boid,boids);
+        for (let b of boidsInRange) {
+          let ratio = 1 - Math.min(1,boid.position.distanceTo(b.position)/BIOD_RADIUS);
+          velocity.add(clone().sub(boid.position).addScalar(ratio));
+        }
+        velocity.setLength(0.2);
+        boid.position.add(velocity);
+      }
+  */
