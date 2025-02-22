@@ -20,7 +20,7 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-var boid_count = 5;
+var boid_count = 1;
 var boids = [];
 
 // Weights
@@ -43,82 +43,106 @@ const terrariumDimensions = {
 }
 
 const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
+BoidGeometry.translate(0, .35, 0);
+BoidGeometry.rotateX(Math.PI / 2);
 const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
+
+/*
+ *
+ * Boid Constants
+ * 
+ */
+const BOID_CONST = {
+    radius: 2,
+    maxSpeed: 0.1,
+    maxSteering: 0.001,
+    margin: 2
+}
 
 class Boid {
     constructor()  {
         this.mesh = new THREE.Mesh(BoidGeometry, BoidMaterial);
+        this.mesh.geometry.rotateZ(Math.PI / 2);
         this.mesh.visible = true;
         this.mesh.position.set((Math.random() - 0.5) * terrariumDimensions.width,
                                (Math.random() - 0.5) * terrariumDimensions.height,
                                (Math.random() - 0.5) * terrariumDimensions.depth);
         this.mesh.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
+
+        //this.velocity = new THREE.Vector3(Math.random() - 0.5, 1 + Math.random() -0.5, Math.random() -0.5).normalize();
+       // this.mesh.localToWorld(this.velocity);
+        //this.velocity.sub(this.mesh.position);
         this.velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() -0.5, Math.random() -0.5).normalize();
+
+        const face = new THREE.Vector3().copy(this.velocity).add(this.mesh.position);
+        this.mesh.lookAt(face);
         //this.acceleration = new THREE.Vector3();
         // TODO: Add Bounds
-        this.xMin = terrariumDimensions.width / -4;
-        this.xMax = terrariumDimensions.width / 4;
-        this.yMin = terrariumDimensions.height / -4 - 3;
-        this.yMax = terrariumDimensions.height / 4 - 3;
-        this.zMin = terrariumDimensions.depth / -4;
-        this.zMax = terrariumDimensions.depth / 4;
+        this.xMin = terrariumDimensions.width / -2;
+        this.xMax = terrariumDimensions.width / 2;
+        this.yMin = terrariumDimensions.height / -4 - 3; // Bottom of teranium 
+        this.yMax = terrariumDimensions.height / 4 - 3; // Bottom of Teranium
+        this.zMin = terrariumDimensions.depth / -2;
+        this.zMax = terrariumDimensions.depth / 2;
         scene.add(this.mesh);
     }
 
     move() {
-        console.log("Boid moving:", this.mesh.position);
-        // TODO: Calc distance from bounds
+
+        // TODO: Apply steering force when close to boundaries
         let distXMin = this.mesh.position.x - this.xMin;
         let distXMax = this.xMax - this.mesh.position.x;
         let distYMin = this.mesh.position.y - this.yMin;
         let distYMax = this.yMax - this.mesh.position.y; 
         let distZMin = this.mesh.position.z - this.zMin;
         let distZMax = this.zMax - this.mesh.position.z;
-        // Movement Vector
-        const movementVector = new THREE.Vector3(0,1,0);
-        this.mesh.localToWorld(movementVector);
+        const steeringVector = new THREE.Vector3();
+        if (distXMin < BOID_CONST.margin) {
+            steeringVector.x += BOID_CONST.maxSteering * (1 - distXMin/BOID_CONST.margin); 
+        }
+        else if (distXMax < BOID_CONST.margin) {
+            steeringVector.x -= BOID_CONST.maxSteering * (1 - distXMax/BOID_CONST.margin); 
+        }
+        //console.log(distXMin);
+        //console.log(distXMax);
+        //console.log(BOID_CONST.margin);
+        //console.log('\n');
+
+        if (distYMin < BOID_CONST.margin) {
+            steeringVector.y += BOID_CONST.maxSteering * (1 - distYMin/BOID_CONST.margin); 
+        }
+        else if (distYMax < BOID_CONST.margin) {
+            steeringVector.y -= BOID_CONST.maxSteering * (1 - distYMax/BOID_CONST.margin);
+        }
+
+        if (distZMin < BOID_CONST.margin) {
+            steeringVector.z += BOID_CONST.maxSteering * (1 - distZMin/BOID_CONST.margin); 
+        }
+        else if (distZMax < BOID_CONST.margin) {
+            steeringVector.z -= BOID_CONST.maxSteering * (1 - distZMax/BOID_CONST.margin);
+        }
+
+
+        this.seperation()
+        this.alignment()
+        this.cohesion()
+
+        //const movementVector = new THREE.Vector3(0,1,0);
+        //this.mesh.localToWorld(movementVector);
+        //movementVector.sub(this.mesh.position);
+        const movementVector = new THREE.Vector3(0,0,0);
         movementVector.sub(this.mesh.position);
-        // TODO: Apply steering force when close to boundaries
-        if (distXMin < MARGIN) {
-            movementVector.x += MAX_STEERING * (1 - distXMin/MARGIN); 
-        }
-        else if (distXMax < MARGIN) {
-            movementVector.x -= MAX_STEERING * (1 - distXMax/MARGIN); 
-        }
-        if (distYMin < MARGIN) {
-            movementVector.y += MAX_STEERING * (1 - distYMin/MARGIN); 
-        }
-        else if (distYMax < MARGIN) {
-            movementVector.y -= MAX_STEERING * (1 - distYMax/MARGIN);
-        }
-        if (distZMin < MARGIN) {
-            movementVector.z += MAX_STEERING * (1 - distZMin/MARGIN); 
-        }
-        else if (distZMax < MARGIN) {
-            movementVector.z -= MAX_STEERING * (1 - distZMax/MARGIN);
-        }
-        // TODO: Velocity -> Acceleration and limit max speed
-        //this.acceleration.add(movementVector);
-        //this.velocity.add(this.acceleration);
+
+        movementVector.add(steeringVector);
         this.velocity.add(movementVector);
-        this.velocity.clampLength(0, MAX_SPEED);
+        this.velocity.clampLength(0, BOID_CONST.maxSpeed);
         this.mesh.position.add(this.velocity);
-        //this.acceleration.set(0,0,0);
-        // Face of boid to face of movement
-        
-        const face = new THREE.Vector3().copy(velocity).add(this.mesh.position);
+
+        console.log(this.velocity);
+
+        const diretion = this.velocity.clone().normalize();
+        const face = this.mesh.position.clone().add(diretion);
         this.mesh.lookAt(face);
-        /*
-        const seperationVector = this.seperation();
-        //this.acceleration.add(seperationVector);
-        velocity.add(seperationVector);
-        const alignmentVector = this.alignment();
-        //this.acceleration.add(alignmentVector);
-        velocity.add(alignmentVector);
-        const cohesionVector = this.cohesion();
-        //this.acceleration.add(cohesionVector);
-        velocity.add(cohesionVector);
-        */
     }
 
     seperation() {
