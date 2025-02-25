@@ -19,6 +19,8 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
+const vision_cone = generate_vision_cone(45, 3, 100);
+console.log(vision_cone);
 var boid_count = 20;
 var boids = [];
 
@@ -27,13 +29,42 @@ const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
 
 function initialize_boids() {
   for (let i = 0; i < boid_count; i++) {
-    const boid = new THREE.Mesh(BoidGeometry, BoidMaterial);
-    boid.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
-    boid.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
+    const boid = {
+      mesh: new THREE.Mesh(BoidGeometry, BoidMaterial),
+      velocity: new THREE.Vector3(Math.random()/200, Math.random()/200, Math.random()/200),
+      seperation: new THREE.Vector3(0,0,0),
+      alignment: new THREE.Vector3(0,0,0),
+      cohesion: new THREE.Vector3(0,0,0),
+    }
+    boid.mesh.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
+    boid.mesh.lookAt(boid.velocity);
     boids.push(boid);
-    scene.add(boid);
+    scene.add(boid.mesh);
   }
 }
+
+function generate_vision_cone(fov, view_radius, samples) {
+  // fov in degrees
+  const phi = Math.PI * (Math.sqrt(5) - 1); 
+  const fov_radians = fov * (Math.PI / 180);
+  // golden angle in radians
+  let points = [];
+  for (let i = 0; i < samples; i++) {
+    let y = 1 - ((i/(samples-1)) *2);
+    if (y >= Math.cos(fov_radians)) {
+      let radius = Math.sqrt(1- (y*y));
+      let theta = phi * i;
+      let x = Math.cos(theta) * radius;
+      let z = Math.sin(theta) * radius;
+      const point = new THREE.Vector3(x*view_radius,y*view_radius,z*view_radius);
+      points.push(point);
+    } else {
+      return points;
+    }
+  }
+  return points;
+}
+
 /**
  * Textures
  */
@@ -254,6 +285,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
  */
 const clock = new THREE.Clock()
 
+const point_geometery = new THREE.SphereGeometry(0.05, 16, 16);
+const point_material = new THREE.MeshPhongMaterial({ color: 'blue' }); 
+
 const tick = () => {
     const elapsedTime = clock.getElapsedTime()
 
@@ -263,18 +297,36 @@ const tick = () => {
     // Render
     renderer.render(scene, camera)
 
-    for (let boid of boids) {
-      const velocity = new THREE.Vector3(0,1,0);
-      boid.localToWorld(velocity);
-      velocity.sub(boid.position);
-      velocity.setLength(0.1);
-      boid.position.add(velocity);
-    }
-
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
 }
 
 tick()
 initialize_boids()
+for (let boid of boids) {
+  const velocity = new THREE.Vector3(0,1,0);
+  const mesh = boid.mesh;
+  mesh.localToWorld(velocity);
+  velocity.sub(mesh.position);
+  velocity.setLength(0.1);
+  const cone = generate_vision_cone(45, 1, 100);
+  for (let i = 0; i < cone.length; i++) {
+    const point_mesh = new THREE.Mesh(point_geometery, point_material);
+    console.log("Before")
+    console.log(cone[i])
+    mesh.localToWorld(cone[i]);
+    console.log("After")
+    console.log(cone[i])
+    point_mesh.position.copy(cone[i])
+point_mesh.geometry.computeBoundingBox()
+    scene.add(point_mesh);
+  }
+  // boid.position.add(velocity);
+}
+// for (point in vision_cone) {
+//   const object = (new THREE.SphereGeometry(1, 16, 16), new THREE.MeshPhongMaterial({ color: 'blue' }));
+//   object.position.x = point.x;
+//   object.position.y = point.y;
+//   object.position.z = point.z;
+// }
 console.log(boids)
