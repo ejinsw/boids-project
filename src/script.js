@@ -19,13 +19,14 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-const vision_cone = generate_vision_cone(45, 3, 100);
-console.log(vision_cone);
-var boid_count = 20;
+var boid_count = 3;
 var boids = [];
 
 const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
 const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
+
+const point_geometry = new THREE.SphereGeometry(0.1, 16,16);
+const point_material = new THREE.MeshBasicMaterial({color: 0x282828});
 
 function initialize_boids() {
   for (let i = 0; i < boid_count; i++) {
@@ -35,15 +36,27 @@ function initialize_boids() {
       seperation: new THREE.Vector3(0,0,0),
       alignment: new THREE.Vector3(0,0,0),
       cohesion: new THREE.Vector3(0,0,0),
+      vision_cone: new Array(),
     }
-    boid.mesh.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height, (Math.random() - 0.5) * terrariumDimensions.depth);
+    boid.mesh.position.set((Math.random() - 0.5) * terrariumDimensions.width, (Math.random() - 0.5) * terrariumDimensions.height + 2, (Math.random() - 0.5) * terrariumDimensions.depth);
     boid.mesh.lookAt(boid.velocity);
+
+    const vision_cone = generate_vision_cone(40,100);
+    for (let j = 0; j < vision_cone.length; j++) {
+      const point_pos = vision_cone[j].clone();
+      const point = new THREE.Mesh(point_geometry, point_material);
+      point.position.copy(point_pos);
+      boid.vision_cone.push(point);
+      boid.mesh.add(point);
+    }
+    console.log(boid.vision_cone)
     boids.push(boid);
     scene.add(boid.mesh);
+
   }
 }
 
-function generate_vision_cone(fov, view_radius, samples) {
+function generate_vision_cone(fov, samples) {
   // fov in degrees
   const phi = Math.PI * (Math.sqrt(5) - 1); 
   const fov_radians = fov * (Math.PI / 180);
@@ -56,13 +69,45 @@ function generate_vision_cone(fov, view_radius, samples) {
       let theta = phi * i;
       let x = Math.cos(theta) * radius;
       let z = Math.sin(theta) * radius;
-      const point = new THREE.Vector3(x*view_radius,y*view_radius,z*view_radius);
+      const point = new THREE.Vector3(x,y,z);
       points.push(point);
     } else {
       return points;
     }
   }
   return points;
+}
+
+function avoid_obstactles(boids) {
+  for (let i = 0; i < boids.length; i++) {
+    const raycaster = new THREE.Raycaster();
+    const mesh = boids[i].mesh;
+    let intersect = false;
+
+    for (let j = 0; j < boids[i].vision_cone.length; j++) {
+      const direction = new THREE.Vector3();
+      const point = boids[i].vision_cone[j].clone();
+      mesh.localToWorld(point);
+      direction.subVectors(point, mesh.position).normalize();
+
+      raycaster.set(mesh.position, direction);
+
+      for (let k = 0; k < objects.length; k++) {
+        const intersections = raycaster.intersectObject(objects[k]);
+        if (intersections.length > 0) {
+          intersect = true;
+          break;
+        }
+      }
+
+      if (intersect) {
+        console.log("Object intersects with at least one vector");
+      } else {
+        console.log("No intersections found");
+      }
+
+    }
+  }
 }
 
 /**
@@ -81,26 +126,20 @@ const terrariumDimensions = {
 
 gui.add(terrariumDimensions, 'width').min(1).max(20).step(0.1).onChange(() => {
     ground.geometry.dispose()
-    ground.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
+    ground.geometry = new THREE.BoxGeometry(terrariumDimensions.width, 2, terrariumDimensions.depth)
 
     container.geometry.dispose()
     container.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
 })
 gui.add(terrariumDimensions, 'height').min(1).max(20).step(0.1).onChange(() => {
-    ground.geometry.dispose()
-    ground.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
-
-    ground.position.y = - terrariumDimensions.height / 2
-
     container.geometry.dispose()
     container.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
-
     container.position.y = terrariumDimensions.height / 2
 
 })
 gui.add(terrariumDimensions, 'depth').min(1).max(20).step(0.1).onChange(() => {
     ground.geometry.dispose()
-    ground.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
+    ground.geometry = new THREE.BoxGeometry(terrariumDimensions.width, 2, terrariumDimensions.depth)
 
     container.geometry.dispose()
     container.geometry = new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth)
@@ -109,10 +148,10 @@ gui.add(terrariumDimensions, 'depth').min(1).max(20).step(0.1).onChange(() => {
 const terrarium = new THREE.Group()
 
 const ground = new THREE.Mesh(
-    new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth),
+    new THREE.BoxGeometry(terrariumDimensions.width, 2, terrariumDimensions.depth),
     new THREE.MeshPhongMaterial({ color: 'lightgreen' })
 )
-ground.position.y = - terrariumDimensions.height / 2
+ground.position.y = 0; 
 ground.receiveShadow = true
 terrarium.add(ground)
 
@@ -120,7 +159,7 @@ const container = new THREE.Mesh(
     new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth),
     new THREE.MeshPhongMaterial({ color: '#c7f5fb', transparent: true, opacity: 0.2, shininess: 100 })
 )
-container.position.y = terrariumDimensions.height / 2
+container.position.y = terrariumDimensions.height / 2 + 1;
 terrarium.add(container)
 
 terrarium.position.y = - 3
@@ -150,13 +189,14 @@ function makeObject(geometry, material) {
     return object
 }
 
-const objects = [
+const movingobjects = [
     makeObject(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color: 'gray' })),
     makeObject(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshPhongMaterial({ color: 'blue' })),
     makeObject(new THREE.ConeGeometry(1, 2, 16), new THREE.MeshPhongMaterial({ color: 'red' })),
 ]
+const objects = [...movingobjects, container, ground]
 
-objects.forEach((object) => {
+movingobjects.forEach((object) => {
     object.geometry.computeBoundingBox()
     scene.add(object)
 })
@@ -236,7 +276,7 @@ transformControls.addEventListener('change', () => {
 
 scene.add(transformControls)
 
-objects.forEach((object, index) => {
+movingobjects.forEach((object, index) => {
     object.addEventListener('click', () => {
         transformControls.attach(object)
         prevPosition.copy(object.position)
@@ -253,7 +293,7 @@ window.addEventListener('click', (event) => {
 
     // Raycaster
     raycaster.setFromCamera(mouse, camera)
-    const intersects = raycaster.intersectObjects(objects)
+    const intersects = raycaster.intersectObjects(movingobjects)
 
     if (intersects.length) {
         const object = intersects[0].object
@@ -285,9 +325,6 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
  */
 const clock = new THREE.Clock()
 
-const point_geometery = new THREE.SphereGeometry(0.05, 16, 16);
-const point_material = new THREE.MeshPhongMaterial({ color: 'blue' }); 
-
 const tick = () => {
     const elapsedTime = clock.getElapsedTime()
 
@@ -296,6 +333,7 @@ const tick = () => {
 
     // Render
     renderer.render(scene, camera)
+    avoid_obstactles(boids);
 
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
@@ -303,30 +341,5 @@ const tick = () => {
 
 tick()
 initialize_boids()
-for (let boid of boids) {
-  const velocity = new THREE.Vector3(0,1,0);
-  const mesh = boid.mesh;
-  mesh.localToWorld(velocity);
-  velocity.sub(mesh.position);
-  velocity.setLength(0.1);
-  const cone = generate_vision_cone(45, 1, 100);
-  for (let i = 0; i < cone.length; i++) {
-    const point_mesh = new THREE.Mesh(point_geometery, point_material);
-    console.log("Before")
-    console.log(cone[i])
-    mesh.localToWorld(cone[i]);
-    console.log("After")
-    console.log(cone[i])
-    point_mesh.position.copy(cone[i])
-point_mesh.geometry.computeBoundingBox()
-    scene.add(point_mesh);
-  }
-  // boid.position.add(velocity);
-}
-// for (point in vision_cone) {
-//   const object = (new THREE.SphereGeometry(1, 16, 16), new THREE.MeshPhongMaterial({ color: 'blue' }));
-//   object.position.x = point.x;
-//   object.position.y = point.y;
-//   object.position.z = point.z;
-// }
-console.log(boids)
+
+
