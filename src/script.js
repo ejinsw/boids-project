@@ -24,9 +24,9 @@ var boid_count = 30;
 var boids = [];
 
 // Weights
-const WEIGHT_SEPERATION = 0.1;
-const WEIGHT_COHESION = 0.1;
-const WEIGHT_ALIGNMENT = 0.1;
+const WEIGHT_SEPERATION = 1;
+const WEIGHT_COHESION = 1;
+const WEIGHT_ALIGNMENT = 1;
 
 const BOID_RADIUS = 2;
 const MAX_SPEED = 0.07;
@@ -66,6 +66,20 @@ const BOID_CONST = {
 
 const Z_AXIS = new THREE.Vector3(0,0,1);
 
+const len = 10;
+let BOID_CUBES = Array.from({length: len}, () =>
+                 Array.from({length: len}, () => 
+                 Array.from({length: len}, () => [])));
+
+class PosVel {
+    constructor(pos,vel) {
+        this.pos = new THREE.Vector3().copy(pos);
+        this.vel = new THREE.Vector3().copy(vel);
+    }
+}
+
+let nonEmptyCubes = new Set();
+
 class Boid {
     constructor()  {
         this.mesh = new THREE.Mesh(BoidGeometry, BoidMaterial);
@@ -91,6 +105,10 @@ class Boid {
         this.zMin = 0;
         this.zMax = terrariumDimensions.depth;
 
+        this.cubeX = -1;
+        this.cubeY = -1;
+        this.cubeZ = -1;
+
         scene.add(this.mesh);
     }
 
@@ -114,13 +132,13 @@ class Boid {
         acceleration.add(this.alignment());
         acceleration.add(this.cohesion());
         //acceleration.multiplyScalar(delta_time);
-        console.log('Acceleration: ');
-        console.log(acceleration);
+        //console.log('Acceleration: ');
+        //console.log(acceleration);
 
         this.velocity.add(acceleration);
         this.velocity.clampLength(0, BOID_CONST.maxSpeed);
-        console.log('Velocity: ');
-        console.log(this.velocity)
+        //console.log('Velocity: ');
+        //console.log(this.velocity)
         const velocity_prime = new THREE.Vector3().copy(this.velocity);
         velocity_prime.applyAxisAngle(Z_AXIS,-Math.PI/2);
         //velocity_prime.multiplyScalar(delta_time);
@@ -165,18 +183,136 @@ class Boid {
     seperation() {
         // Implementation for separation behavior
         const seperationVector = new THREE.Vector3();
+        if (this.cubeX < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX + 1][this.cubeY][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
+        if (this.cubeX > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX - 1][this.cubeY][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
+        if (this.cubeY < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY + 1][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
+        if (this.cubeY > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY - 1][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
+        if (this.cubeZ < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ + 1]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
+        if (this.cubeZ > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ - 1]) {
+                let vec = new THREE.Vector3().copy(posvel.pos).sub(this.mesh.position);
+                vec.multiplyScalar(1 - vec.length() / 15);
+                seperationVector.add(vec);
+            }
+        }
         return seperationVector.multiplyScalar(WEIGHT_SEPERATION);
     }
 
     alignment() {
         // Implementation for alignment 
         const alignmentVector = new THREE.Vector3();
+        let count = 0;
+        if (this.cubeX < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX + 1][this.cubeY][this.cubeZ]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (this.cubeX > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX - 1][this.cubeY][this.cubeZ]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (this.cubeY < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY + 1][this.cubeZ]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (this.cubeY > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY - 1][this.cubeZ]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (this.cubeZ < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ + 1]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (this.cubeZ > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ - 1]) {
+                alignmentVector.add(posvel.vel);
+                count++;
+            }
+        }
+        if (count) {
+            alignmentVector.divideScalar(count);
+        }
         return alignmentVector.multiplyScalar(WEIGHT_ALIGNMENT);
     }
 
     cohesion() {
         // Implementation for cohesion behavior
         const cohesionVector = new THREE.Vector3();
+        if (this.cubeX < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX + 1][this.cubeY][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
+        if (this.cubeX > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX - 1][this.cubeY][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
+        if (this.cubeY < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY + 1][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
+        if (this.cubeY > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY - 1][this.cubeZ]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
+        if (this.cubeZ < 9) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ + 1]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
+        if (this.cubeZ > 0) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ - 1]) {
+                let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
+                cohesionVector.add(vec);
+            }
+        }
         return cohesionVector.multiplyScalar(WEIGHT_COHESION);
     }
 
@@ -479,6 +615,30 @@ const tick = async () => {
     // Render
     renderer.render(scene, camera)
 
+    // Clear the cubes that have boids in them
+
+    for (let cubeIndex of nonEmptyCubes) {
+        let [x, y , z] = cubeIndex.split(' ').map(Number);
+        BOID_CUBES[x][y][z] = [];
+    }
+    nonEmptyCubes.clear();
+
+    for (let boid of boids) {
+        let posval = new PosVel(boid.mesh.position, boid.velocity);
+        let x = Math.floor(boid.mesh.position.x / 5);
+        let y = Math.floor(boid.mesh.position.y / 5);
+        let z = Math.floor(boid.mesh.position.z / 5);
+        x = Math.max(0, Math.min(x,9));
+        y = Math.max(0, Math.min(y,9));
+        z = Math.max(0, Math.min(z,9));
+        boid.cubeX = x;
+        boid.cubeY = y;
+        boid.cubeZ = z;
+        BOID_CUBES[x][y][z].push(posval);
+        console.log(x + ' ' + y + ' ' + z);
+        nonEmptyCubes.add(x + ' ' + y + ' ' + z);
+    }
+
     for (let boid of boids) {
       boid.move(delta_time)
     }
@@ -488,4 +648,4 @@ const tick = async () => {
 }
 initialize_boids();
 tick()
-console.log(boids);
+//console.log(boids);
