@@ -22,18 +22,8 @@ scene.background = new THREE.Color('#87ceeb')
 // Raycaster
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
-var boid_count = 30;
 var boids = [];
 
-// Weights
-const WEIGHT_SEPERATION = 1;
-const WEIGHT_COHESION = 1;
-const WEIGHT_ALIGNMENT = 1;
-
-const BOID_RADIUS = 2;
-const MAX_SPEED = 0.07;
-const MAX_STEERING = 0.3;
-const MARGIN = 3;
 
 /**
  * Terrarium
@@ -44,13 +34,12 @@ const MARGIN = 3;
 //     depth: 15
 // }
 const terrariumDimensions = {
-    width: 50,
-    height: 50,
-    depth: 50
+    width: 100,
+    height: 100,
+    depth: 100
 }
 
 const BoidGeometry = new THREE.ConeGeometry(0.2,0.7,32);
-BoidGeometry.translate(0, .35, 0);
 BoidGeometry.rotateX(Math.PI / 2);
 const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
 
@@ -60,25 +49,22 @@ const BoidMaterial = new THREE.MeshBasicMaterial({color: 0xffff00});
  * 
  */
 const BOID_CONST = {
-    radius: 7,
-    maxSpeed: 0.5,
-    maxSteering: 4,
+    count: 100,
+    sepRadius: 5, // 
+    maxSpeed: 1.0,
+    maxSteering: 0.02,
+    weightSeperation: 1.5,
+    weightAlighment: 1.0,
+    weightCohesion:  1.0,
     margin: 10
 }
 
 const Z_AXIS = new THREE.Vector3(0,0,1);
 
-const len = 10;
-let BOID_CUBES = Array.from({length: len}, () =>
-                 Array.from({length: len}, () => 
-                 Array.from({length: len}, () => [])));
-
-class PosVel {
-    constructor(pos,vel) {
-        this.pos = new THREE.Vector3().copy(pos);
-        this.vel = new THREE.Vector3().copy(vel);
-    }
-}
+const CUBE_LEN = 10;
+const BOID_CUBES = Array(CUBE_LEN).fill().map(() =>
+                   Array(CUBE_LEN).fill().map(() =>
+                   Array(CUBE_LEN).fill().map(() => [])));
 
 let nonEmptyCubes = new Set();
 
@@ -92,10 +78,10 @@ class Boid {
             Math.random() * terrariumDimensions.height,
             Math.random() * terrariumDimensions.depth
         );
-        this.mesh.lookAt(Math.random()/200, Math.random()/200, Math.random()/200);
 
         // Velocity should be un Rotated and then rotate before applying to position
         this.velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() -0.5, Math.random() -0.5).normalize();
+        this.acceleration = new THREE.Vector3();
 
         const face = new THREE.Vector3().copy(this.velocity).add(this.mesh.position);
         this.mesh.lookAt(face);
@@ -141,13 +127,16 @@ class Boid {
         this.velocity.clampLength(0, BOID_CONST.maxSpeed);
         //console.log('Velocity: ');
         //console.log(this.velocity)
-        const velocity_prime = new THREE.Vector3().copy(this.velocity);
-        velocity_prime.applyAxisAngle(Z_AXIS,-Math.PI/2);
-        //velocity_prime.multiplyScalar(delta_time);
+
+        this.mesh.position.add(this.velocity);
+        this.acceleration.set(0,0,0);
+        // const velocity_prime = new THREE.Vector3().copy(this.velocity);
+        // velocity_prime.applyAxisAngle(Z_AXIS,-Math.PI/2);
+        // //velocity_prime.multiplyScalar(delta_time);
         
-        this.mesh.position.add(velocity_prime);
+        // this.mesh.position.add(velocity_prime);
         
-        const face = new THREE.Vector3().copy(this.mesh.position).add(velocity_prime);
+        const face = new THREE.Vector3().copy(this.mesh.position).add(velocity);
         this.mesh.lookAt(face);
     }
 
@@ -304,13 +293,16 @@ class Boid {
             }
         }
         if (this.cubeZ < 9) {
-            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ + 1]) {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ + 1]) 
+            {
                 let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
                 cohesionVector.add(vec);
             }
         }
-        if (this.cubeZ > 0) {
-            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ - 1]) {
+        if (this.cubeZ > 0) 
+        {
+            for (let posvel of BOID_CUBES[this.cubeX][this.cubeY][this.cubeZ - 1]) 
+            {
                 let vec = new THREE.Vector3().copy(this.mesh.position).sub(posvel.pos);
                 cohesionVector.add(vec);
             }
@@ -325,6 +317,30 @@ function initialize_boids() {
     let boid = new Boid();
     boids.push(boid);
   }
+}
+
+function updateBoidCubes()
+{
+    for (let cubeIndex of nonEmptyCubes) {
+        let [x, y , z] = cubeIndex.split(' ').map(Number);
+        BOID_CUBES[x][y][z] = [];
+    }
+    nonEmptyCubes.clear();
+
+    for (let boid of boids) {
+        let x = Math.floor(boid.mesh.position.x / 5);
+        let y = Math.floor(boid.mesh.position.y / 5);
+        let z = Math.floor(boid.mesh.position.z / 5);
+        x = Math.max(0, Math.min(x,9));
+        y = Math.max(0, Math.min(y,9));
+        z = Math.max(0, Math.min(z,9));
+        boid.cubeX = x;
+        boid.cubeY = y;
+        boid.cubeZ = z;
+        BOID_CUBES[x][y][z].push(boid);
+        nonEmptyCubes.add(x + ' ' + y + ' ' + z);
+    }
+
 }
 /**
  * Textures
@@ -483,8 +499,8 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 1000); // Increase far plane to 1000
-camera.position.set(75, 75, 150); // Move the camera further back
-camera.lookAt(terrarium.position); // Ensure the camera looks at the center of the terrarium
+camera.position.set(80, 80, 160); // Move the camera further back
+//camera.lookAt(terrarium.position); // Ensure the camera looks at the center of the terrarium
 scene.add(camera);
 
 /**
@@ -617,29 +633,6 @@ const tick = async () => {
     // Render
     renderer.render(scene, camera)
 
-    // Clear the cubes that have boids in them
-
-    for (let cubeIndex of nonEmptyCubes) {
-        let [x, y , z] = cubeIndex.split(' ').map(Number);
-        BOID_CUBES[x][y][z] = [];
-    }
-    nonEmptyCubes.clear();
-
-    for (let boid of boids) {
-        let posval = new PosVel(boid.mesh.position, boid.velocity);
-        let x = Math.floor(boid.mesh.position.x / 5);
-        let y = Math.floor(boid.mesh.position.y / 5);
-        let z = Math.floor(boid.mesh.position.z / 5);
-        x = Math.max(0, Math.min(x,9));
-        y = Math.max(0, Math.min(y,9));
-        z = Math.max(0, Math.min(z,9));
-        boid.cubeX = x;
-        boid.cubeY = y;
-        boid.cubeZ = z;
-        BOID_CUBES[x][y][z].push(posval);
-        console.log(x + ' ' + y + ' ' + z);
-        nonEmptyCubes.add(x + ' ' + y + ' ' + z);
-    }
 
     for (let boid of boids) {
       boid.move(delta_time)
