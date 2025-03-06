@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
 import { TransformControls } from 'three/examples/jsm/Addons.js'
 
+
+//Making safe point
 /**
  * Base
  */
