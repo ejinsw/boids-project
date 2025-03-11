@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
+import { ThreeMFLoader } from 'three/examples/jsm/Addons.js'
 
 /**
  * Basic setup
@@ -110,6 +111,8 @@ const BOID_CONFIG = {
     cohesionWeight: 1.0,
     separationWeight: 1.5,
     edgeMargin: 10,
+    sepBadBoid: 1.0,
+    addBadBoid: false,
     status: false
 }
 
@@ -136,6 +139,16 @@ const boidMaterial = new THREE.MeshStandardMaterial({
     metalness: 0.3,
     roughness: 0.4
 })
+
+const badBoidGeometry = new THREE.ConeGeometry(1, 4, 8)
+badBoidGeometry.rotateX(Math.PI / 2)
+const badBoidMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff0000,
+    metalness: 0.3,
+    roughness: 0.4
+})
+
+let badBoid = null;
 
 class Boid {
     constructor() {
@@ -204,7 +217,8 @@ class Boid {
         const y = Math.floor(this.mesh.position.y / CELL_SIZE)
         const z = Math.floor(this.mesh.position.z / CELL_SIZE)
         
-        this.gridCell = {
+        this.gridCell = 
+        {
             x: THREE.MathUtils.clamp(x, 0, GRID_SIZE - 1),
             y: THREE.MathUtils.clamp(y, 0, GRID_SIZE - 1),
             z: THREE.MathUtils.clamp(z, 0, GRID_SIZE - 1)
@@ -386,6 +400,53 @@ class Boid {
         
         return steering
     }
+
+    badBoid()
+    {
+        if (badBoid != null)
+        {
+            try
+            {
+                const desired = new THREE.Vector3().subVectors(this.mesh.position,badBoid.mesh.position);
+                let distance = desired.length();
+                const badForce = BOID_CONFIG.maxForce * 1;
+                if (distance < 0.001 )
+                {
+                    desired.sub(this.velocity);
+                    desired.normalize();
+                    return desired.multiplyScalar(badForce);
+                }
+
+                desired.multiplyScalar(BOID_CONFIG.maxSpeed * (distance / (BOID_CONFIG.radius))); 
+                const steering = new THREE.Vector3().subVectors(desired,this.velocity);
+                
+                if (steering.length() > badForce)
+                {
+                    steering.normalize().multiplyScalar(badForce);
+                }
+
+                return steering.multiplyScalar(BOID_CONFIG.sepBadBoid);
+            }
+            catch(error)
+            {
+                console.error("Error in badBoid function in boid", error);
+                return new THREE.Vector3();
+            }
+            // const desired = new THREE.Vector3().subVectors(this.mesh.position,badBoid.mesh.position);
+            // let distance = desired.length;
+            // distance -= BOID_CONFIG.radius;
+            // distance = Math.max(0.1,distance);
+            // desired.normalize();
+            // desired.multiplyScalar(BOID_CONFIG.maxSpeed);
+            // const steering = new THREE.Vector3().subVectors(desired,this.velocity);
+            // steering.divideScalar(distance);
+            // return steering.multiplyScalar(BOID_CONFIG.sepBadBoid);
+        }
+        else
+        {
+            return new THREE.Vector3();
+        }
+    }
     
     // Flock: calculate all flocking forces and apply them
     flock() {
@@ -393,23 +454,138 @@ class Boid {
         const alignment = this.align().multiplyScalar(BOID_CONFIG.alignmentWeight)
         const cohesion = this.cohere().multiplyScalar(BOID_CONFIG.cohesionWeight)
         const containment = this.containment()
+        const badBoid = this.badBoid();
         
         this.applyForce(separation)
         this.applyForce(alignment)
         this.applyForce(cohesion)
         this.applyForce(containment)
+        this.applyForce(badBoid)
     }
 }
 
-// let badBoid = null;
-// function createBadBoid()
-// {
-//     badBoid = new Boid();
-// }
-// function removeBadBoid()
-// {
-//     scene.remove(badBoid.mesh);
-// }
+
+// in hindsight should have made this its own class
+class BadBoid extends Boid
+{
+    constructor()
+    {
+        super();
+
+        scene.remove(this.mesh);
+        this.mesh = new THREE.Mesh(badBoidGeometry, badBoidMaterial);
+        // Set initial position
+        this.mesh.position.set(
+            Math.random() * terrariumDimensions.width,
+            Math.random() * terrariumDimensions.height,
+            Math.random() * terrariumDimensions.depth
+        )
+        
+        // Initial velocity (random direction)
+        this.velocity = new THREE.Vector3(
+            Math.random() * 2 - 1,
+            Math.random() * 2 - 1,
+            Math.random() * 2 - 1
+        )
+        this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed * Math.random())
+        
+        // Initial acceleration
+        this.acceleration = new THREE.Vector3()
+        
+        // Grid cell position
+        this.gridCell = { x: 0, y: 0, z: 0 }
+        
+        // Add to scene
+        scene.add(this.mesh)
+
+
+    }
+    separate()
+    {
+        return new THREE.Vector3();
+    }
+    align()
+    {
+        return new THREE.Vector3();
+    }
+    cohere() {
+        const desired = new THREE.Vector3();
+        let closestDistance = 100;
+
+        for (const boid of boids) 
+        {
+            const distance = this.mesh.position.distanceTo(boid.mesh.position);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                desired.copy(boid.mesh.position);
+            }
+        }
+        return this.seek(desired).multiplyScalar(BOID_CONFIG.cohesionWeight);
+    }
+    flock()
+    {
+        const cohesion = this.cohere()
+        const containment = this.containment()
+
+        this.applyForce(cohesion)
+        this.applyForce(containment)
+
+        console.log("Cohesion force:", cohesion); // Debug log
+        console.log("Containment force:", containment); 
+    }
+    update() {
+        this.velocity.add(this.acceleration)
+        
+        // Limit speed
+        if (this.velocity.length() > BOID_CONFIG.maxSpeed) {
+            this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed)
+        }
+        
+        // Update position
+        this.mesh.position.add(this.velocity)
+        
+        // Reset acceleration
+        this.acceleration.set(0, 0, 0)
+        
+        // Update orientation to match velocity direction
+        if (this.velocity.length() > 0.1) {
+            const lookAtPosition = new THREE.Vector3().copy(this.mesh.position).add(this.velocity)
+            this.mesh.lookAt(lookAtPosition)
+        }
+
+        this.updateGridCell();
+    }
+    
+    // Calculate which cell this boid belongs to
+    updateGridCell() 
+    {
+        const x = Math.floor(this.mesh.position.x / CELL_SIZE)
+        const y = Math.floor(this.mesh.position.y / CELL_SIZE)
+        const z = Math.floor(this.mesh.position.z / CELL_SIZE)
+        
+        this.gridCell = 
+        {
+            x: THREE.MathUtils.clamp(x, 0, GRID_SIZE - 1),
+            y: THREE.MathUtils.clamp(y, 0, GRID_SIZE - 1),
+            z: THREE.MathUtils.clamp(z, 0, GRID_SIZE - 1)
+        }
+    }
+}
+
+
+function createBadBoid()
+{
+    badBoid = new BadBoid();
+}
+function removeBadBoid()
+{
+    scene.remove(badBoid.mesh);
+    badBoid.mesh.geometry.dispose();
+    badBoid.mesh.material.dispose();
+    badBoid = null;
+    console.log("Bad boid removed");
+}
 
 // Create boids
 const boids = []
@@ -435,7 +611,7 @@ function removeBoids()
 // Update spatial grid
 function updateSpatialGrid() {
     // Clear grid
-
+    console.log(boids.length);
     
     for (let x = 0; x < GRID_SIZE; x++) {
         for (let y = 0; y < GRID_SIZE; y++) {
@@ -447,10 +623,45 @@ function updateSpatialGrid() {
     
     
     // Add boids to grid
-    for (const boid of boids) {
-        const { x, y, z } = boid.gridCell
-        spatialGrid[x][y][z].push(boid)
+    for (let i = 0; i < boids.length; i++) {
+        const boid = boids[i];
+        
+        // Check for NaN positions and fix them
+        if (isNaN(boid.mesh.position.x) || isNaN(boid.mesh.position.y) || isNaN(boid.mesh.position.z)) {
+            console.warn(`Found NaN position in boid ${i}, resetting position`);
+            // Reset to a valid position
+            boid.mesh.position.set(
+                Math.random() * terrariumDimensions.width,
+                Math.random() * terrariumDimensions.height,
+                Math.random() * terrariumDimensions.depth
+            );
+            // Force update grid cell
+            boid.updateGridCell();
+        }
+        
+        // Now add to grid with additional safety
+        if (boid.gridCell && 
+            !isNaN(boid.gridCell.x) && 
+            !isNaN(boid.gridCell.y) && 
+            !isNaN(boid.gridCell.z)) {
+            
+            const x = boid.gridCell.x;
+            const y = boid.gridCell.y;
+            const z = boid.gridCell.z;
+            
+            // Final check before adding to grid
+            if (x >= 0 && x < GRID_SIZE && 
+                y >= 0 && y < GRID_SIZE && 
+                z >= 0 && z < GRID_SIZE) {
+                spatialGrid[x][y][z].push(boid);
+            }
+        }
     }
+    // for (const boid of boids) {
+    //     console.log(boid.mesh.position);
+    //     const { x, y, z } = boid.gridCell;
+    //     spatialGrid[x][y][z].push(boid)
+    // }
 }
 
 
@@ -472,6 +683,7 @@ gui.add(BOID_CONFIG,'status').onChange((value) =>
     }
     else
     {
+        console.log("Boids removed");
         removeBoids();
         boidCount.show();
     }
@@ -503,6 +715,19 @@ gui.add(BOID_CONFIG,'separationWeight',0.1,3.0,0.1).onChange(() =>
 {
     console.log(BOID_CONFIG.separationWeight);
 });
+gui.add(BOID_CONFIG,'addBadBoid').onChange((value) => 
+{
+    if (value)
+    {
+        console.log("Bad boid created");
+        createBadBoid();
+    }
+    else
+    {
+        console.log("Bad boid removed");
+        removeBadBoid();
+    }
+});
     
 
 // gui.add(BOID_CONFIG.cohesionWeight,'Cohesion',0.1,3.0,0.1);
@@ -523,8 +748,13 @@ function tick() {
     // Update spatial grid
     updateSpatialGrid()
 
-    if (BOID_CONFIG.status);
+    if (BOID_CONFIG.status)
     {
+        if (badBoid)
+        {
+            badBoid.flock();
+            badBoid.update();
+        }
         for (const boid of boids) {
             boid.flock()
             boid.update()
