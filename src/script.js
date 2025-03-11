@@ -110,7 +110,7 @@ const BOID_CONFIG = {
     cohesionWeight: 1.0,
     separationWeight: 1.5,
     edgeMargin: 10,
-    status: false
+    runSimulation: false
 }
 
 // Spatial partitioning grid dimensions
@@ -401,6 +401,16 @@ class Boid {
     }
 }
 
+// class BadBoid extends Boid
+// {
+//     constructor()
+//     {
+//         super();
+//         this.mesh.material.color = 0xff0000;
+//         this.mesh.boidGeometry.scale.
+//     }
+// }
+
 // let badBoid = null;
 // function createBadBoid()
 // {
@@ -463,7 +473,7 @@ boidCount.onChange(() =>
 });
 boidCount.show();
 
-gui.add(BOID_CONFIG,'status').onChange((value) =>
+gui.add(BOID_CONFIG,'runSimulation').onChange((value) =>
 {
     if (value)
     {
@@ -478,18 +488,6 @@ gui.add(BOID_CONFIG,'status').onChange((value) =>
     console.log('Changed Status');
 });
 
-
-function changeStatus()
-{
-    if (BOID_CONFIG.status)
-    {
-        boidCount.hide();
-    }
-    else
-    {
-        boidCount.show();
-    }
-}
 
 gui.add(BOID_CONFIG,'alignmentWeight',0.1,3.0,0.1).onChange(() => 
 {
@@ -523,7 +521,7 @@ function tick() {
     // Update spatial grid
     updateSpatialGrid()
 
-    if (BOID_CONFIG.status);
+    if (BOID_CONFIG.runSimulation);
     {
         for (const boid of boids) {
             boid.flock()
