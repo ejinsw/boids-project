@@ -583,7 +583,7 @@ let heroBoid = null
 
 function createBoids() {
     heroBoid = new Boid()
-    heroBoid.mesh.material = new THREE.MeshStandardMaterial({ color: 'red' })
+    heroBoid.mesh.material = new THREE.MeshStandardMaterial({ color: 'green' })
     boids.push(heroBoid)
     for (let i = 0; i < BOID_CONFIG.count; i++) {
         boids.push(new Boid())
@@ -657,16 +657,30 @@ function updateSpatialGrid() {
 /**
  * Event Listeners
  */
-let isCameraFollowing = false
+let cameraBoid = null
 window.addEventListener('keypress', (e) => {
     if (e.key === 'c') {
-        isCameraFollowing = !isCameraFollowing
-        if (isCameraFollowing) {
-            camera.position.copy(heroBoid.mesh.position).add(new THREE.Vector3(0, 3, -3))
-            controls.enabled = false
-        } else {
+        switch (cameraBoid) {
+            case null:
+                if (!heroBoid) {
+                    cameraBoid = badBoid
+                    break
+                }
+                cameraBoid = heroBoid
+                break
+            case heroBoid:
+                cameraBoid = badBoid
+                break
+            case badBoid:
+                cameraBoid = null
+                break
+        }
+        if (!cameraBoid) {
             camera.position.set(80, 80, 160)
             controls.enabled = true
+        } else {
+            camera.position.copy(cameraBoid.mesh.position).add(new THREE.Vector3(0, 3, -3))
+            controls.enabled = false
         }
     }
 })
@@ -734,10 +748,30 @@ function tick() {
     // Update spatial grid
     updateSpatialGrid()
 
+    // Camera
+    if (!!cameraBoid) {
+        const offset = new THREE.Vector3(0, 3, -6);
+        offset.applyQuaternion(cameraBoid.mesh.quaternion);
+        const desiredPosition = new THREE.Vector3().copy(cameraBoid.mesh.position).add(offset);
+
+        camera.position.lerp(desiredPosition, 0.05);
+
+        const lookAtTarget = new THREE.Vector3(0, 0, 3);
+        lookAtTarget.applyQuaternion(cameraBoid.mesh.quaternion);
+        lookAtTarget.add(cameraBoid.mesh.position);
+        camera.lookAt(lookAtTarget);
+    }
+
     // Update boids
-    for (const boid of boids) {
-        boid.flock()
-        boid.update()
+    if (BOID_CONFIG.runSimulation) {
+        if (badBoid) {
+            badBoid.flock();
+            badBoid.update();
+        }
+        for (const boid of boids) {
+            boid.flock()
+            boid.update()
+        }
     }
 
     // Render
