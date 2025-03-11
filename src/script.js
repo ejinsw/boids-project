@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import GUI from 'lil-gui'
 
 /**
  * Basic setup
@@ -108,7 +109,8 @@ const BOID_CONFIG = {
     alignmentWeight: 1.0,
     cohesionWeight: 1.0,
     separationWeight: 1.5,
-    edgeMargin: 10
+    edgeMargin: 10,
+    status: false
 }
 
 // Spatial partitioning grid dimensions
@@ -399,15 +401,42 @@ class Boid {
     }
 }
 
+// let badBoid = null;
+// function createBadBoid()
+// {
+//     badBoid = new Boid();
+// }
+// function removeBadBoid()
+// {
+//     scene.remove(badBoid.mesh);
+// }
+
 // Create boids
 const boids = []
-for (let i = 0; i < BOID_CONFIG.count; i++) {
-    boids.push(new Boid())
+
+function createBoids()
+{
+    for (let i = 0; i < BOID_CONFIG.count; i++) 
+    {
+        boids.push(new Boid())
+    }
+}
+function removeBoids()
+{
+    for (let boid of boids)
+    {
+        scene.remove(boid.mesh);
+        boid.mesh.geometry.dispose();
+        boid.mesh.material.dispose();
+    }
+    boids.length = 0;
 }
 
 // Update spatial grid
 function updateSpatialGrid() {
     // Clear grid
+
+    
     for (let x = 0; x < GRID_SIZE; x++) {
         for (let y = 0; y < GRID_SIZE; y++) {
             for (let z = 0; z < GRID_SIZE; z++) {
@@ -424,25 +453,85 @@ function updateSpatialGrid() {
     }
 }
 
+
+const gui = new GUI();
+
+const boidCount = gui.add(BOID_CONFIG,'count',1,1000,1);
+boidCount.onChange(() => 
+{
+    console.log(BOID_CONFIG.count);
+});
+boidCount.show();
+
+gui.add(BOID_CONFIG,'status').onChange((value) =>
+{
+    if (value)
+    {
+        createBoids();
+        boidCount.hide();
+    }
+    else
+    {
+        removeBoids();
+        boidCount.show();
+    }
+    console.log('Changed Status');
+});
+
+
+function changeStatus()
+{
+    if (BOID_CONFIG.status)
+    {
+        boidCount.hide();
+    }
+    else
+    {
+        boidCount.show();
+    }
+}
+
+gui.add(BOID_CONFIG,'alignmentWeight',0.1,3.0,0.1).onChange(() => 
+{
+    console.log(BOID_CONFIG.alignmentWeight);
+});
+gui.add(BOID_CONFIG,'cohesionWeight',0.1,3.0,0.1).onChange(() => 
+{
+    console.log(BOID_CONFIG.cohesionWeight);
+});
+gui.add(BOID_CONFIG,'separationWeight',0.1,3.0,0.1).onChange(() => 
+{
+    console.log(BOID_CONFIG.separationWeight);
+});
+    
+
+// gui.add(BOID_CONFIG.cohesionWeight,'Cohesion',0.1,3.0,0.1);
+// gui.add(BOID_CONFIG.separationWeight,'Separation',0.1,3.0,0.1);
+
+
+
 /**
  * Animation
  */
 const clock = new THREE.Clock()
 
 function tick() {
-    const deltaTime = clock.getDelta()
     
     // Update controls
     controls.update()
     
     // Update spatial grid
     updateSpatialGrid()
-    
-    // Update boids
-    for (const boid of boids) {
-        boid.flock()
-        boid.update()
+
+    if (BOID_CONFIG.status);
+    {
+        for (const boid of boids) {
+            boid.flock()
+            boid.update()
+        }
     }
+
+    // Update boids
     
     // Render
     renderer.render(scene, camera)
