@@ -19,6 +19,12 @@ const sizes = {
     height: window.innerHeight
 }
 
+const terrariumDimensions = {
+    width: 100,
+    height: 100,
+    depth: 100
+}
+
 // Camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 1000)
 camera.position.set(80, 80, 160)
@@ -27,6 +33,12 @@ scene.add(camera)
 // Controls
 const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
+controls.target.set(
+    terrariumDimensions.width / 2,
+    terrariumDimensions.height / 2 - 10,
+    terrariumDimensions.depth / 2
+)
+controls.update()
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({
@@ -53,11 +65,7 @@ window.addEventListener('resize', () => {
 /**
  * Terrarium setup
  */
-const terrariumDimensions = {
-    width: 100,
-    height: 100,
-    depth: 100
-}
+
 
 const terrarium = new THREE.Group()
 
@@ -73,12 +81,12 @@ terrarium.add(ground)
 // Container
 const container = new THREE.Mesh(
     new THREE.BoxGeometry(terrariumDimensions.width, terrariumDimensions.height, terrariumDimensions.depth),
-    new THREE.MeshPhongMaterial({ 
-        color: '#c7f5fb', 
-        transparent: true, 
-        opacity: 0.2, 
-        shininess: 100, 
-        side: THREE.DoubleSide 
+    new THREE.MeshPhongMaterial({
+        color: '#c7f5fb',
+        transparent: true,
+        opacity: 0.2,
+        shininess: 100,
+        side: THREE.DoubleSide
     })
 )
 container.position.set(terrariumDimensions.width / 2, terrariumDimensions.height / 2, terrariumDimensions.depth / 2)
@@ -119,14 +127,14 @@ const BOID_CONFIG = {
 // Spatial partitioning grid dimensions
 const GRID_SIZE = 10
 const CELL_SIZE = Math.max(
-    terrariumDimensions.width, 
-    terrariumDimensions.height, 
+    terrariumDimensions.width,
+    terrariumDimensions.height,
     terrariumDimensions.depth
 ) / GRID_SIZE
 
 // Create the spatial grid
-const spatialGrid = Array(GRID_SIZE).fill().map(() => 
-    Array(GRID_SIZE).fill().map(() => 
+const spatialGrid = Array(GRID_SIZE).fill().map(() =>
+    Array(GRID_SIZE).fill().map(() =>
         Array(GRID_SIZE).fill().map(() => [])
     )
 )
@@ -154,14 +162,14 @@ class Boid {
     constructor() {
         // Create the mesh
         this.mesh = new THREE.Mesh(boidGeometry, boidMaterial)
-        
+
         // Set initial position
         this.mesh.position.set(
             Math.random() * terrariumDimensions.width,
             Math.random() * terrariumDimensions.height,
             Math.random() * terrariumDimensions.depth
         )
-        
+
         // Initial velocity (random direction)
         this.velocity = new THREE.Vector3(
             Math.random() * 2 - 1,
@@ -169,66 +177,65 @@ class Boid {
             Math.random() * 2 - 1
         )
         this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed * Math.random())
-        
+
         // Initial acceleration
         this.acceleration = new THREE.Vector3()
-        
+
         // Grid cell position
         this.gridCell = { x: 0, y: 0, z: 0 }
-        
+
         // Add to scene
         scene.add(this.mesh)
     }
-    
+
     // Apply a force to the boid's acceleration
     applyForce(force) {
         this.acceleration.add(force)
     }
-    
+
     // Update position and velocity
     update() {
         // Update velocity
         this.velocity.add(this.acceleration)
-        
+
         // Limit speed
         if (this.velocity.length() > BOID_CONFIG.maxSpeed) {
             this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed)
         }
-        
+
         // Update position
         this.mesh.position.add(this.velocity)
-        
+
         // Reset acceleration
         this.acceleration.set(0, 0, 0)
-        
+
         // Update orientation to match velocity direction
         if (this.velocity.length() > 0.1) {
             const lookAtPosition = new THREE.Vector3().copy(this.mesh.position).add(this.velocity)
             this.mesh.lookAt(lookAtPosition)
         }
-        
+
         // Update grid cell
         this.updateGridCell()
     }
-    
+
     // Calculate which cell this boid belongs to
     updateGridCell() {
         const x = Math.floor(this.mesh.position.x / CELL_SIZE)
         const y = Math.floor(this.mesh.position.y / CELL_SIZE)
         const z = Math.floor(this.mesh.position.z / CELL_SIZE)
-        
-        this.gridCell = 
-        {
+
+        this.gridCell = {
             x: THREE.MathUtils.clamp(x, 0, GRID_SIZE - 1),
             y: THREE.MathUtils.clamp(y, 0, GRID_SIZE - 1),
             z: THREE.MathUtils.clamp(z, 0, GRID_SIZE - 1)
         }
     }
-    
+
     // Get nearby boids from spatial grid
     getNearbyBoids() {
         const nearby = []
-        
+
         // Check the current cell and neighboring cells
         for (let dx = -1; dx <= 1; dx++) {
             for (let dy = -1; dy <= 1; dy++) {
@@ -236,20 +243,20 @@ class Boid {
                     const nx = this.gridCell.x + dx
                     const ny = this.gridCell.y + dy
                     const nz = this.gridCell.z + dz
-                    
+
                     // Skip cells outside the grid
-                    if (nx < 0 || nx >= GRID_SIZE || 
-                        ny < 0 || ny >= GRID_SIZE || 
+                    if (nx < 0 || nx >= GRID_SIZE ||
+                        ny < 0 || ny >= GRID_SIZE ||
                         nz < 0 || nz >= GRID_SIZE) {
                         continue
                     }
-                    
+
                     // Add boids from this cell
                     const cell = spatialGrid[nx][ny][nz]
                     for (const boid of cell) {
                         // Skip self
                         if (boid === this) continue
-                        
+
                         // Check if within perception radius
                         const distance = this.mesh.position.distanceTo(boid.mesh.position)
                         if (distance < BOID_CONFIG.perceptionRadius) {
@@ -259,20 +266,20 @@ class Boid {
                 }
             }
         }
-        
+
         return nearby
     }
-    
+
     // Separation: steer to avoid crowding local flockmates
     separate() {
         const steering = new THREE.Vector3()
         let count = 0
-        
+
         const nearbyBoids = this.getNearbyBoids()
-        
+
         for (const other of nearbyBoids) {
             const distance = this.mesh.position.distanceTo(other.mesh.position)
-            
+
             if (distance < BOID_CONFIG.radius) {
                 // Calculate vector pointing away from neighbor
                 const diff = new THREE.Vector3().subVectors(this.mesh.position, other.mesh.position)
@@ -282,153 +289,147 @@ class Boid {
                 count++
             }
         }
-        
+
         if (count > 0) {
             steering.divideScalar(count)
-            
+
             // Implement Reynolds: Steering = Desired - Velocity
             steering.normalize()
             steering.multiplyScalar(BOID_CONFIG.maxSpeed)
             steering.sub(this.velocity)
-            
+
             // Limit force
             if (steering.length() > BOID_CONFIG.maxForce) {
                 steering.normalize().multiplyScalar(BOID_CONFIG.maxForce)
             }
         }
-        
+
         return steering
     }
-    
+
     // Alignment: steer towards the average heading of local flockmates
     align() {
         const steering = new THREE.Vector3()
         let count = 0
-        
+
         const nearbyBoids = this.getNearbyBoids()
-        
+
         for (const other of nearbyBoids) {
             steering.add(other.velocity)
             count++
         }
-        
+
         if (count > 0) {
             steering.divideScalar(count)
-            
+
             // Implement Reynolds: Steering = Desired - Velocity
             steering.normalize()
             steering.multiplyScalar(BOID_CONFIG.maxSpeed)
             steering.sub(this.velocity)
-            
+
             // Limit force
             if (steering.length() > BOID_CONFIG.maxForce) {
                 steering.normalize().multiplyScalar(BOID_CONFIG.maxForce)
             }
         }
-        
+
         return steering
     }
-    
+
     // Cohesion: steer to move toward the average position of local flockmates
     cohere() {
         const steering = new THREE.Vector3()
         let count = 0
-        
+
         const nearbyBoids = this.getNearbyBoids()
-        
+
         for (const other of nearbyBoids) {
             steering.add(other.mesh.position)
             count++
         }
-        
+
         if (count > 0) {
             steering.divideScalar(count)
-            
+
             // Seek target position
             return this.seek(steering)
         }
-        
+
         return steering
     }
-    
+
     // Seek a target position
     seek(target) {
         // Desired velocity
         const desired = new THREE.Vector3().subVectors(target, this.mesh.position)
-        
+
         // Scale to maximum speed
         desired.normalize()
         desired.multiplyScalar(BOID_CONFIG.maxSpeed)
-        
+
         // Steering = Desired - Velocity
         const steering = new THREE.Vector3().subVectors(desired, this.velocity)
-        
+
         // Limit force
         if (steering.length() > BOID_CONFIG.maxForce) {
             steering.normalize().multiplyScalar(BOID_CONFIG.maxForce)
         }
-        
+
         return steering
     }
-    
+
     // Contain boids within the terrarium
     containment() {
         const steering = new THREE.Vector3()
         const margin = BOID_CONFIG.edgeMargin
         const desiredSpeed = BOID_CONFIG.maxSpeed
-        
+
         // Check x boundaries
         if (this.mesh.position.x < margin) {
             steering.x = desiredSpeed
         } else if (this.mesh.position.x > terrariumDimensions.width - margin) {
             steering.x = -desiredSpeed
         }
-        
+
         // Check y boundaries
         if (this.mesh.position.y < margin) {
             steering.y = desiredSpeed
         } else if (this.mesh.position.y > terrariumDimensions.height - margin) {
             steering.y = -desiredSpeed
         }
-        
+
         // Check z boundaries
         if (this.mesh.position.z < margin) {
             steering.z = desiredSpeed
         } else if (this.mesh.position.z > terrariumDimensions.depth - margin) {
             steering.z = -desiredSpeed
         }
-        
+
         return steering
     }
 
-    badBoid()
-    {
-        if (badBoid != null)
-        {
-            try
-            {
-                const desired = new THREE.Vector3().subVectors(this.mesh.position,badBoid.mesh.position);
+    badBoid() {
+        if (badBoid != null) {
+            try {
+                const desired = new THREE.Vector3().subVectors(this.mesh.position, badBoid.mesh.position);
                 let distance = desired.length();
                 const badForce = BOID_CONFIG.maxForce * 1;
-                if (distance < 0.001 )
-                {
+                if (distance < 0.001) {
                     desired.sub(this.velocity);
                     desired.normalize();
                     return desired.multiplyScalar(badForce);
                 }
 
-                desired.multiplyScalar(BOID_CONFIG.maxSpeed * (distance / (BOID_CONFIG.radius))); 
-                const steering = new THREE.Vector3().subVectors(desired,this.velocity);
-                
-                if (steering.length() > badForce)
-                {
+                desired.multiplyScalar(BOID_CONFIG.maxSpeed * (distance / (BOID_CONFIG.radius)));
+                const steering = new THREE.Vector3().subVectors(desired, this.velocity);
+
+                if (steering.length() > badForce) {
                     steering.normalize().multiplyScalar(badForce);
                 }
 
                 return steering.multiplyScalar(BOID_CONFIG.sepBadBoid);
             }
-            catch(error)
-            {
+            catch (error) {
                 console.error("Error in badBoid function in boid", error);
                 return new THREE.Vector3();
             }
@@ -442,12 +443,11 @@ class Boid {
             // steering.divideScalar(distance);
             // return steering.multiplyScalar(BOID_CONFIG.sepBadBoid);
         }
-        else
-        {
+        else {
             return new THREE.Vector3();
         }
     }
-    
+
     // Flock: calculate all flocking forces and apply them
     flock() {
         const separation = this.separate().multiplyScalar(BOID_CONFIG.separationWeight)
@@ -455,7 +455,7 @@ class Boid {
         const cohesion = this.cohere().multiplyScalar(BOID_CONFIG.cohesionWeight)
         const containment = this.containment()
         const badBoid = this.badBoid();
-        
+
         this.applyForce(separation)
         this.applyForce(alignment)
         this.applyForce(cohesion)
@@ -466,10 +466,8 @@ class Boid {
 
 
 // in hindsight should have made this its own class
-class BadBoid extends Boid
-{
-    constructor()
-    {
+class BadBoid extends Boid {
+    constructor() {
         super();
 
         scene.remove(this.mesh);
@@ -480,7 +478,7 @@ class BadBoid extends Boid
             Math.random() * terrariumDimensions.height,
             Math.random() * terrariumDimensions.depth
         )
-        
+
         // Initial velocity (random direction)
         this.velocity = new THREE.Vector3(
             Math.random() * 2 - 1,
@@ -488,43 +486,38 @@ class BadBoid extends Boid
             Math.random() * 2 - 1
         )
         this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed * Math.random())
-        
+
         // Initial acceleration
         this.acceleration = new THREE.Vector3()
-        
+
         // Grid cell position
         this.gridCell = { x: 0, y: 0, z: 0 }
-        
+
         // Add to scene
         scene.add(this.mesh)
 
 
     }
-    separate()
-    {
+    separate() {
         return new THREE.Vector3();
     }
-    align()
-    {
+    align() {
         return new THREE.Vector3();
     }
     cohere() {
         const desired = new THREE.Vector3();
         let closestDistance = 100;
 
-        for (const boid of boids) 
-        {
+        for (const boid of boids) {
             const distance = this.mesh.position.distanceTo(boid.mesh.position);
-            if (distance < closestDistance)
-            {
+            if (distance < closestDistance) {
                 closestDistance = distance;
                 desired.copy(boid.mesh.position);
             }
         }
         return this.seek(desired).multiplyScalar(BOID_CONFIG.cohesionWeight);
     }
-    flock()
-    {
+    flock() {
         const cohesion = this.cohere()
         const containment = this.containment()
 
@@ -532,22 +525,22 @@ class BadBoid extends Boid
         this.applyForce(containment)
 
         console.log("Cohesion force:", cohesion); // Debug log
-        console.log("Containment force:", containment); 
+        console.log("Containment force:", containment);
     }
     update() {
         this.velocity.add(this.acceleration)
-        
+
         // Limit speed
         if (this.velocity.length() > BOID_CONFIG.maxSpeed) {
             this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed)
         }
-        
+
         // Update position
         this.mesh.position.add(this.velocity)
-        
+
         // Reset acceleration
         this.acceleration.set(0, 0, 0)
-        
+
         // Update orientation to match velocity direction
         if (this.velocity.length() > 0.1) {
             const lookAtPosition = new THREE.Vector3().copy(this.mesh.position).add(this.velocity)
@@ -556,15 +549,14 @@ class BadBoid extends Boid
 
         this.updateGridCell();
     }
-    
+
     // Calculate which cell this boid belongs to
-    updateGridCell() 
-    {
+    updateGridCell() {
         const x = Math.floor(this.mesh.position.x / CELL_SIZE)
         const y = Math.floor(this.mesh.position.y / CELL_SIZE)
         const z = Math.floor(this.mesh.position.z / CELL_SIZE)
-        
-        this.gridCell = 
+
+        this.gridCell =
         {
             x: THREE.MathUtils.clamp(x, 0, GRID_SIZE - 1),
             y: THREE.MathUtils.clamp(y, 0, GRID_SIZE - 1),
@@ -574,12 +566,10 @@ class BadBoid extends Boid
 }
 
 
-function createBadBoid()
-{
+function createBadBoid() {
     badBoid = new BadBoid();
 }
-function removeBadBoid()
-{
+function removeBadBoid() {
     scene.remove(badBoid.mesh);
     badBoid.mesh.geometry.dispose();
     badBoid.mesh.material.dispose();
@@ -589,18 +579,18 @@ function removeBadBoid()
 
 // Create boids
 const boids = []
+let heroBoid = null
 
-function createBoids()
-{
-    for (let i = 0; i < BOID_CONFIG.count; i++) 
-    {
+function createBoids() {
+    heroBoid = new Boid()
+    heroBoid.mesh.material = new THREE.MeshStandardMaterial({ color: 'red' })
+    boids.push(heroBoid)
+    for (let i = 0; i < BOID_CONFIG.count; i++) {
         boids.push(new Boid())
     }
 }
-function removeBoids()
-{
-    for (let boid of boids)
-    {
+function removeBoids() {
+    for (let boid of boids) {
         scene.remove(boid.mesh);
         boid.mesh.geometry.dispose();
         boid.mesh.material.dispose();
@@ -612,7 +602,7 @@ function removeBoids()
 function updateSpatialGrid() {
     // Clear grid
     console.log(boids.length);
-    
+
     for (let x = 0; x < GRID_SIZE; x++) {
         for (let y = 0; y < GRID_SIZE; y++) {
             for (let z = 0; z < GRID_SIZE; z++) {
@@ -620,12 +610,12 @@ function updateSpatialGrid() {
             }
         }
     }
-    
-    
+
+
     // Add boids to grid
     for (let i = 0; i < boids.length; i++) {
         const boid = boids[i];
-        
+
         // Check for NaN positions and fix them
         if (isNaN(boid.mesh.position.x) || isNaN(boid.mesh.position.y) || isNaN(boid.mesh.position.z)) {
             console.warn(`Found NaN position in boid ${i}, resetting position`);
@@ -638,20 +628,20 @@ function updateSpatialGrid() {
             // Force update grid cell
             boid.updateGridCell();
         }
-        
+
         // Now add to grid with additional safety
-        if (boid.gridCell && 
-            !isNaN(boid.gridCell.x) && 
-            !isNaN(boid.gridCell.y) && 
+        if (boid.gridCell &&
+            !isNaN(boid.gridCell.x) &&
+            !isNaN(boid.gridCell.y) &&
             !isNaN(boid.gridCell.z)) {
-            
+
             const x = boid.gridCell.x;
             const y = boid.gridCell.y;
             const z = boid.gridCell.z;
-            
+
             // Final check before adding to grid
-            if (x >= 0 && x < GRID_SIZE && 
-                y >= 0 && y < GRID_SIZE && 
+            if (x >= 0 && x < GRID_SIZE &&
+                y >= 0 && y < GRID_SIZE &&
                 z >= 0 && z < GRID_SIZE) {
                 spatialGrid[x][y][z].push(boid);
             }
@@ -664,25 +654,38 @@ function updateSpatialGrid() {
     // }
 }
 
+/**
+ * Event Listeners
+ */
+let isCameraFollowing = false
+window.addEventListener('keypress', (e) => {
+    if (e.key === 'c') {
+        isCameraFollowing = !isCameraFollowing
+        if (isCameraFollowing) {
+            camera.position.copy(heroBoid.mesh.position).add(new THREE.Vector3(0, 3, -3))
+            controls.enabled = false
+        } else {
+            camera.position.set(80, 80, 160)
+            controls.enabled = true
+        }
+    }
+})
+
 
 const gui = new GUI();
 
-const boidCount = gui.add(BOID_CONFIG,'count',1,1000,1);
-boidCount.onChange(() => 
-{
+const boidCount = gui.add(BOID_CONFIG, 'count', 1, 1000, 1);
+boidCount.onChange(() => {
     console.log(BOID_CONFIG.count);
 });
 boidCount.show();
 
-gui.add(BOID_CONFIG,'runSimulation').onChange((value) =>
-{
-    if (value)
-    {
+gui.add(BOID_CONFIG, 'runSimulation').onChange((value) => {
+    if (value) {
         createBoids();
         boidCount.hide();
     }
-    else
-    {
+    else {
         console.log("Boids removed");
         removeBoids();
         boidCount.show();
@@ -691,32 +694,26 @@ gui.add(BOID_CONFIG,'runSimulation').onChange((value) =>
 });
 
 
-gui.add(BOID_CONFIG,'alignmentWeight',0.1,3.0,0.1).onChange(() => 
-{
+gui.add(BOID_CONFIG, 'alignmentWeight', 0.1, 3.0, 0.1).onChange(() => {
     console.log(BOID_CONFIG.alignmentWeight);
 });
-gui.add(BOID_CONFIG,'cohesionWeight',0.1,3.0,0.1).onChange(() => 
-{
+gui.add(BOID_CONFIG, 'cohesionWeight', 0.1, 3.0, 0.1).onChange(() => {
     console.log(BOID_CONFIG.cohesionWeight);
 });
-gui.add(BOID_CONFIG,'separationWeight',0.1,3.0,0.1).onChange(() => 
-{
+gui.add(BOID_CONFIG, 'separationWeight', 0.1, 3.0, 0.1).onChange(() => {
     console.log(BOID_CONFIG.separationWeight);
 });
-gui.add(BOID_CONFIG,'addBadBoid').onChange((value) => 
-{
-    if (value)
-    {
+gui.add(BOID_CONFIG, 'addBadBoid').onChange((value) => {
+    if (value) {
         console.log("Bad boid created");
         createBadBoid();
     }
-    else
-    {
+    else {
         console.log("Bad boid removed");
         removeBadBoid();
     }
 });
-    
+
 
 // gui.add(BOID_CONFIG.cohesionWeight,'Cohesion',0.1,3.0,0.1);
 // gui.add(BOID_CONFIG.separationWeight,'Separation',0.1,3.0,0.1);
@@ -729,31 +726,23 @@ gui.add(BOID_CONFIG,'addBadBoid').onChange((value) =>
 const clock = new THREE.Clock()
 
 function tick() {
-    
+    const deltaTime = clock.getDelta()
+
     // Update controls
     controls.update()
-    
+
     // Update spatial grid
     updateSpatialGrid()
 
-    if (BOID_CONFIG.runSimulation)
-    {
-        if (badBoid)
-        {
-            badBoid.flock();
-            badBoid.update();
-        }
-        for (const boid of boids) {
-            boid.flock()
-            boid.update()
-        }
+    // Update boids
+    for (const boid of boids) {
+        boid.flock()
+        boid.update()
     }
 
-    // Update boids
-    
     // Render
     renderer.render(scene, camera)
-    
+
     // Call tick again on the next frame
     window.requestAnimationFrame(tick)
 }
