@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
 import { ThreeMFLoader } from 'three/examples/jsm/Addons.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
 
 /**
  * Basic setup
@@ -104,6 +106,28 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
 directionalLight.position.set(50, 100, 50)
 directionalLight.castShadow = true
 scene.add(directionalLight)
+
+// Trying to load a 3d Model
+
+// COMENT THIS OUT IF YOU DONT WANT IT
+const loader = new GLTFLoader();
+
+loader.load('./wooden-bridge/source/WoodenBridge.gltf', function (gltf)
+{
+    const model = gltf.scene;
+    const boundingBox = new THREE.Box3().setFromObject(model);
+    let scale = 12;
+    model.scale.set(scale, scale, scale);
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    let bridgeY = boundingBox.min.y;
+    model.position.set(0, 0, 0);
+    const offsetVector = center.clone().multiplyScalar(scale);
+    model.position.set(terrariumDimensions.width / 2, bridgeY ,terrariumDimensions.depth / 2);
+    model.position.sub(offsetVector);
+    scene.add(model);
+});
+
 
 /**
  * Boids Implementation
