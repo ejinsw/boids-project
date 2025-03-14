@@ -764,7 +764,9 @@ window.addEventListener('click', (event) => {
     if (intersects.length) {
         const object = intersects[1].object
         transformControls.attach(object)
-    }
+    } else {
+    transformControls.detach();
+  }
 })
 
 function removeBoids() {
