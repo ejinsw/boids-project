@@ -72,11 +72,18 @@ window.addEventListener('resize', () => {
 
 
 const terrarium = new THREE.Group()
+const textureLoader = new THREE.TextureLoader();
+const grassTexture = textureLoader.load('./textures/Grass_04.png');
+
+grassTexture.wrapS = THREE.RepeatWrapping;
+grassTexture.wrapT = THREE.RepeatWrapping;
+//grassTexture.repeat.set(10, 10);
 
 // Ground
 const ground = new THREE.Mesh(
   new THREE.BoxGeometry(terrariumDimensions.width, 1, terrariumDimensions.depth),
-  new THREE.MeshPhongMaterial({ color: 'lightgreen' })
+  new THREE.MeshPhongMaterial({ map: grassTexture, color: new THREE.Color(2, 2.5, 1)
+})
 )
 ground.position.set(terrariumDimensions.width / 2, -0.5, terrariumDimensions.depth / 2)
 ground.receiveShadow = true
@@ -213,23 +220,23 @@ class Obstacle {
     this.mesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
 
     this.collision_mesh = new THREE.Mesh(obstacleGeometry, new THREE.MeshBasicMaterial({
-        color: "red",
         transparent: true,
-        opacity: 0.4
+        opacity: 0
       })
   );
     this.mesh.add(this.collision_mesh);
 
     this.mesh.position.set(
-      Math.random() * terrariumDimensions.width,
-      Math.random() * terrariumDimensions.height,
-      Math.random() * terrariumDimensions.depth
+      Math.random() * (terrariumDimensions.width - 40) + 20,
+      Math.random() * (terrariumDimensions.height - 40) + 20,
+      Math.random() * (terrariumDimensions.depth - 40) + 20
     )
     this.mesh.geometry.computeBoundingBox();
 
     this.collision_mesh.scale.set(1.01,1.01,1.01);
 
     scene.add(this.mesh)
+
   }
 }
 
@@ -571,6 +578,7 @@ class BadBoid extends Boid {
       Math.random() * terrariumDimensions.height,
       Math.random() * terrariumDimensions.depth
     )
+    this.badBoidMaxSpeed = BOID_CONFIG.maxSpeed * 1.1;
 
     // Initial velocity (random direction)
     this.velocity = new THREE.Vector3(
@@ -627,7 +635,7 @@ class BadBoid extends Boid {
 
     // Limit speed
     if (this.velocity.length() > BOID_CONFIG.maxSpeed) {
-      this.velocity.normalize().multiplyScalar(BOID_CONFIG.maxSpeed)
+      this.velocity.normalize().multiplyScalar(this.badBoidMaxSpeed)
     }
 
     // Update position
@@ -687,16 +695,31 @@ function createBoids() {
   }
 }
 
-function createObstacles() {
-    const box = new Obstacle(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshPhongMaterial({ color: 'green' }));
-    const sphere = new Obstacle(new THREE.SphereGeometry(20, 16, 16), new THREE.MeshPhongMaterial({ color: 'blue' }));
-    const cone = new Obstacle(new THREE.ConeGeometry(1, 2, 16), new THREE.MeshPhongMaterial({ color: 'red' }));
-    obstacles.push(box);
+
+function createSphere()
+{
+    const sphere = new Obstacle(new THREE.SphereGeometry(20, 16, 16), new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff, metalness: 0.9, roughness: 0.2 }));
     obstacles.push(sphere);
-    obstacles.push(cone);
-    movingObstacles.push(box.mesh);
     movingObstacles.push(sphere.mesh);
+}
+
+function createBox()
+{
+    const box = new Obstacle(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff, metalness: 0.9, roughness: 0.2 }));
+    obstacles.push(box);
+    movingObstacles.push(box.mesh);
+}
+
+function createCone()
+{
+    const cone = new Obstacle(new THREE.ConeGeometry(1, 2, 16), new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff, metalness: 0.9, roughness: 0.2 }));
+    obstacles.push(cone);
     movingObstacles.push(cone.mesh);
+}
+
+function createObstacles() {
+    createSphere();
+    createBox();
 }
 
 createObstacles();
