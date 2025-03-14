@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
 import { ThreeMFLoader } from 'three/examples/jsm/Addons.js'
+import { TransformControls } from 'three/examples/jsm/Addons.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 
@@ -14,7 +15,8 @@ const canvas = document.querySelector('canvas.webgl')
 // Scene
 const scene = new THREE.Scene()
 scene.background = new THREE.Color('#87ceeb')
-
+const raycaster = new THREE.Raycaster()
+const mouse = new THREE.Vector2()
 // Sizes
 const sizes = {
   width: window.innerWidth,
@@ -110,23 +112,24 @@ scene.add(directionalLight)
 // Trying to load a 3d Model
 
 // COMENT THIS OUT IF YOU DONT WANT IT
-const loader = new GLTFLoader();
+// const loader = new GLTFLoader();
 
-loader.load('./wooden-bridge/source/WoodenBridge.gltf', function (gltf)
-{
-    const model = gltf.scene;
-    const boundingBox = new THREE.Box3().setFromObject(model);
-    let scale = 12;
-    model.scale.set(scale, scale, scale);
-    const center = new THREE.Vector3();
-    boundingBox.getCenter(center);
-    let bridgeY = boundingBox.min.y;
-    model.position.set(0, 0, 0);
-    const offsetVector = center.clone().multiplyScalar(scale);
-    model.position.set(terrariumDimensions.width / 2, bridgeY ,terrariumDimensions.depth / 2);
-    model.position.sub(offsetVector);
-    scene.add(model);
-});
+// loader.load('./wooden-bridge/source/WoodenBridge.gltf', function (gltf)
+// {
+//     const model = gltf.scene;
+//     const boundingBox = new THREE.Box3().setFromObject(model);
+//     let scale = 12;
+//     model.scale.set(scale, scale, scale);
+//     const center = new THREE.Vector3();
+//     boundingBox.getCenter(center);
+//     let bridgeY = boundingBox.min.y;
+//     model.position.set(0, 0, 0);
+//     const offsetVector = center.clone().multiplyScalar(scale);
+//     model.position.set(terrariumDimensions.width / 2, bridgeY ,terrariumDimensions.depth / 2);
+//     model.position.sub(offsetVector);
+//     scene.add(model);
+//
+// });
 
 
 /**
@@ -210,24 +213,27 @@ class Obstacle {
     this.mesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
 
     this.collision_mesh = new THREE.Mesh(obstacleGeometry, new THREE.MeshBasicMaterial({
-        color: 'red',
+        color: "red",
         transparent: true,
         opacity: 0.4
       })
   );
+    this.mesh.add(this.collision_mesh);
 
     this.mesh.position.set(
       Math.random() * terrariumDimensions.width,
       Math.random() * terrariumDimensions.height,
       Math.random() * terrariumDimensions.depth
     )
-    this.collision_mesh.position.copy(this.mesh.position);
+    this.mesh.geometry.computeBoundingBox();
 
     this.collision_mesh.scale.set(1.01,1.01,1.01);
 
     scene.add(this.mesh)
   }
 }
+
+
 class Boid {
   constructor() {
     // Create the mesh
@@ -669,6 +675,7 @@ function removeBadBoid() {
 // Create boids
 const boids = []
 const obstacles = []
+const movingObstacles = []
 let heroBoid = null
 
 function createBoids() {
@@ -687,9 +694,55 @@ function createObstacles() {
     obstacles.push(box);
     obstacles.push(sphere);
     obstacles.push(cone);
+    movingObstacles.push(box.mesh);
+    movingObstacles.push(sphere.mesh);
+    movingObstacles.push(cone.mesh);
 }
 
 createObstacles();
+
+let prevPosition = new THREE.Vector3()
+const transformControls = new TransformControls(camera, canvas)
+transformControls.addEventListener('dragging-changed', (event) => {
+    controls.enabled = !event.value
+    prevPosition.copy(transformControls.object.position)
+})
+
+transformControls.addEventListener('change', () => {
+    const boundingBox = new THREE.Box3().setFromObject(transformControls.object)
+    const dimensions = new THREE.Vector3()
+    boundingBox.getSize(dimensions)
+
+    let clampedPosition = new THREE.Vector3().copy(transformControls.object.position)
+
+
+    transformControls.object.position.copy(clampedPosition)
+}
+)
+
+scene.add(transformControls)
+
+movingObstacles.forEach((object, index) => {
+    object.addEventListener('click', () => {
+        transformControls.attach(object)
+        prevPosition.copy(object.position)
+    })
+})
+
+window.addEventListener('click', (event) => {
+    // Mouse coordinates
+    mouse.x = event.clientX / sizes.width * 2 - 1
+    mouse.y = - (event.clientY / sizes.height) * 2 + 1
+
+    // Raycaster
+    raycaster.setFromCamera(mouse, camera)
+    const intersects = raycaster.intersectObjects(movingObstacles)
+
+    if (intersects.length) {
+        const object = intersects[1].object
+        transformControls.attach(object)
+    }
+})
 
 function removeBoids() {
   for (let boid of boids) {
