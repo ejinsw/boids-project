@@ -10,6 +10,15 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * Basic setup
  */
 // Canvas
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('instructions-modal');
+  const closeButton = document.getElementById('close-instructions');
+
+  closeButton.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+});
+
 const canvas = document.querySelector('canvas.webgl')
 
 // Scene
@@ -220,12 +229,6 @@ class Obstacle {
     constructor(obstacleGeometry, obstacleMaterial) {
         this.mesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
 
-        this.collision_mesh = new THREE.Mesh(obstacleGeometry, new THREE.MeshBasicMaterial({
-            transparent: true,
-            opacity: 0
-        })
-        );
-        this.mesh.add(this.collision_mesh);
 
         this.mesh.position.set(
             Math.random() * (terrariumDimensions.width - 40) + 20,
@@ -233,8 +236,6 @@ class Obstacle {
             Math.random() * (terrariumDimensions.depth - 40) + 20
         )
         this.mesh.geometry.computeBoundingBox();
-
-        this.collision_mesh.scale.set(1.01, 1.01, 1.01);
 
         scene.add(this.mesh)
 
@@ -537,7 +538,7 @@ class Boid {
         const avoidanceDistance = 10; // Adjust this value as needed
 
         for (const obstacle of obstacles) {
-            let distance = getSurfaceDistance(this.mesh, obstacle.collision_mesh);
+            let distance = getSurfaceDistance(this.mesh, obstacle.mesh);
             if (distance === 0) {
                 const toObstacle = new THREE.Vector3().subVectors(obstacle.mesh.position, this.mesh.position);
                 const avoidanceVector = toObstacle.normalize().multiplyScalar(-1);
@@ -784,7 +785,7 @@ window.addEventListener('click', (event) => {
     const intersects = raycaster.intersectObjects(movingObstacles)
 
     if (intersects.length) {
-        const object = intersects[1].object
+        const object = intersects[0].object
         transformControls.attach(object)
     } else {
         transformControls.detach();

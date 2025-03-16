@@ -1,15 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boids Terrarium</title>
-    <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boids Terrarium</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    rel="stylesheet">
 </head>
+
 <body>
-    <canvas class="webgl"></canvas>
-    <!-- Load lil-gui first -->
-    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18"></script>
-    <script type="module" src="./script.js"></script>
+  <div id="instructions-modal"
+    style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+    <div style="background: white; padding: 20px; border-radius: 10px; max-width: 400px; text-align: center;
+font-family: 'Ubuntu Mono', monospace;">
+      <h2>Instructions</h2>
+      <br />
+      <p>Click on objects you want to move.</p>
+      <p>On clicked objects, press 'R' to change how the objects are transformed </p>
+      <p>Press 'C' to attach cameras to boids.</p>
+      <p>Click the run simulation button when you want to start the simulation</p>
+      <br />
+      <button id="close-instructions"
+        style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Got
+        it!</button>
+    </div>
+  </div>
+  <canvas class="webgl"></canvas>
+  <!-- Load lil-gui first -->
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18"></script>
+  <script type="module" src="./script.js"></script>
 </body>
+
 </html>
