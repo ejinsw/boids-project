@@ -894,14 +894,8 @@ window.addEventListener('keypress', (e) => {
 
 
 const gui = new GUI();
-
-const boidCount = gui.add(BOID_CONFIG, 'count', 1, 1000, 1);
-boidCount.onChange(() => {
-    console.log(BOID_CONFIG.count);
-});
-boidCount.show();
-
-gui.add(BOID_CONFIG, 'runSimulation').onChange((value) => {
+const simulationFolder = gui.addFolder('Simulation Control');
+const runSimButton = simulationFolder.add(BOID_CONFIG, 'runSimulation').name('Run Simulation').onChange((value) => {
     if (value) {
         createBoids();
         boidCount.hide();
@@ -914,17 +908,10 @@ gui.add(BOID_CONFIG, 'runSimulation').onChange((value) => {
     console.log('Changed Status');
 });
 
-
-gui.add(BOID_CONFIG, 'alignmentWeight', 0.1, 3.0, 0.1).onChange(() => {
-    console.log(BOID_CONFIG.alignmentWeight);
-});
-gui.add(BOID_CONFIG, 'cohesionWeight', 0.1, 3.0, 0.1).onChange(() => {
-    console.log(BOID_CONFIG.cohesionWeight);
-});
-gui.add(BOID_CONFIG, 'separationWeight', 0.1, 3.0, 0.1).onChange(() => {
-    console.log(BOID_CONFIG.separationWeight);
-});
-gui.add(BOID_CONFIG, 'addBadBoid').onChange((value) => {
+runSimButton.domElement.style.background = '#4CAF50';
+runSimButton.domElement.style.color = 'white';
+runSimButton.domElement.style.padding = '5px';
+const badBoidButton = simulationFolder.add(BOID_CONFIG, 'addBadBoid').name('Add Bad Boid').onChange((value) => {
     if (value) {
         console.log("Bad boid created");
         createBadBoid();
@@ -933,6 +920,26 @@ gui.add(BOID_CONFIG, 'addBadBoid').onChange((value) => {
         console.log("Bad boid removed");
         removeBadBoid();
     }
+});
+
+badBoidButton.domElement.style.background = '#cc241d';
+badBoidButton.domElement.style.color = 'white';
+badBoidButton.domElement.style.padding = '5px';
+simulationFolder.open();
+const boidSettingsFolder = gui.addFolder('Boid Settings');
+
+const boidCount = boidSettingsFolder.add(BOID_CONFIG, 'count', 1, 1000, 1);
+
+boidCount.show();
+
+boidSettingsFolder.add(BOID_CONFIG, 'alignmentWeight', 0.1, 3.0, 0.1).onChange(() => {
+    console.log(BOID_CONFIG.alignmentWeight);
+});
+boidSettingsFolder.add(BOID_CONFIG, 'cohesionWeight', 0.1, 3.0, 0.1).onChange(() => {
+    console.log(BOID_CONFIG.cohesionWeight);
+});
+boidSettingsFolder.add(BOID_CONFIG, 'separationWeight', 0.1, 3.0, 0.1).onChange(() => {
+    console.log(BOID_CONFIG.separationWeight);
 });
 
 
